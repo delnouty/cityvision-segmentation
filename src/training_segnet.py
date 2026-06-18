@@ -306,7 +306,7 @@ def main():
     mlflow.set_tracking_uri(f"sqlite:///{project_root}/mlflow.db")
     mlflow.set_experiment("urban-segmentation")
 
-    with mlflow.start_run():
+    with mlflow.start_run(run_name="SegNet"):
         mlflow.log_params({
             "epochs":       epochs,
             "patience":     patience,

@@ -298,7 +298,7 @@ def main():
     mlflow.set_tracking_uri(f"sqlite:///{project_root}/mlflow.db")
     mlflow.set_experiment("urban-segmentation")
 
-    with mlflow.start_run(run_name="model_train_resnet50"):
+    with mlflow.start_run(run_name="ResNet50-UNet"):
         mlflow.log_params({
             "epochs":       epochs,
             "patience":     patience,
