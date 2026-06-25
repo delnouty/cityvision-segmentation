@@ -30,6 +30,9 @@ requests==2.34.2
 
 # Testing
 pytest==9.1.1
+# httpx backs FastAPI's TestClient; pin <1.0 (Starlette's TestClient rejects
+# httpx>=1.0, which asks for the separate `httpx2` package).
+httpx==0.28.1
 
 # Linting & formatting
 black==26.5.1

@@ -1,0 +1,39 @@
+name: Lock dependencies
+
+# Regenerates the fully-pinned requirements.txt from requirements.in, on Linux
+# (so the lock has the correct platform transitive deps — not Windows ones).
+# Run manually from the Actions tab whenever requirements.in changes.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install pip-tools
+        run: pip install pip-tools==7.5.3
+
+      - name: Compile lock
+        run: pip-compile --strip-extras --output-file=requirements.txt requirements.in
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- requirements.txt; then
+            echo "Lock already up to date."
+          else
+            git add requirements.txt
+            git commit -m "chore: lock dependencies (pip-compile requirements.in)"
+            git push
+          fi

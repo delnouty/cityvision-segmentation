@@ -1,0 +1,45 @@
+# CityVision — direct dependencies (source of truth).
+# Python 3.10+.
+#
+# This is the *input* to pip-tools. The fully pinned lock is requirements.txt,
+# generated with:   pip-compile requirements.in
+# (in CI this is done on Linux via .github/workflows/lock.yml so the lock has
+#  the correct platform-specific transitive deps.)
+#
+# ── PyTorch is installed SEPARATELY (not locked here) ───────────────────────
+# It is platform/accelerator specific and would otherwise drag ~2.5 GB of CUDA
+# packages into the lock. Install it explicitly:
+#   CPU:  pip install torch==2.12.0 torchvision==0.27.0 --index-url https://download.pytorch.org/whl/cpu
+#   CUDA: pip install torch==2.12.0 torchvision==0.27.0 --index-url https://download.pytorch.org/whl/cu126
+
+# Numerics & imaging
+numpy==2.2.6
+pillow==12.2.0
+
+# Experiment tracking
+mlflow==2.22.5
+
+# Visualization & progress
+matplotlib==3.10.9
+tqdm==4.68.2
+
+# Backend API
+fastapi==0.136.3
+uvicorn==0.49.0
+python-multipart==0.0.32
+
+# Frontend
+streamlit==1.58.0
+requests==2.34.2
+
+# Testing
+pytest==9.1.1
+# httpx backs FastAPI's TestClient; pin <1.0 (Starlette's TestClient rejects
+# httpx>=1.0, which asks for the separate `httpx2` package).
+httpx==0.28.1
+
+# Linting, formatting, tooling
+black==26.5.1
+flake8==7.3.0
+pre-commit==4.6.0
+pip-tools==7.5.3
