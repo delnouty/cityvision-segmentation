@@ -27,3 +27,11 @@ python-multipart==0.0.32
 # Frontend (Streamlit UI that consumes the API)
 streamlit==1.58.0
 requests==2.34.2
+
+# Testing
+pytest==9.1.1
+
+# Linting & formatting
+black==26.5.1
+flake8==7.3.0
+pre-commit==4.6.0

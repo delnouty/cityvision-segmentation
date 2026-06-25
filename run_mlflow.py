@@ -11,9 +11,17 @@ if __name__ == "__main__":
     print(f"Starting MLflow UI at http://{HOST}:{PORT}")
     print(f"Backend: {db_uri}\n")
 
-    subprocess.run([
-        sys.executable, "-m", "mlflow", "ui",
-        "--backend-store-uri", db_uri,
-        "--host", HOST,
-        "--port", str(PORT),
-    ])
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "ui",
+            "--backend-store-uri",
+            db_uri,
+            "--host",
+            HOST,
+            "--port",
+            str(PORT),
+        ]
+    )

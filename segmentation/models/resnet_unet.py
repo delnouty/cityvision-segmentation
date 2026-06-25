@@ -23,13 +23,13 @@ from .base import BaseSegModel
 # (layer1..layer4) emitted by that backbone.
 _RESNET_SPECS = {
     34: {
-        "ctor":     tv_models.resnet34,
-        "weights":  lambda: tv_models.ResNet34_Weights.IMAGENET1K_V1,
+        "ctor": tv_models.resnet34,
+        "weights": lambda: tv_models.ResNet34_Weights.IMAGENET1K_V1,
         "channels": (64, 128, 256, 512),
     },
     50: {
-        "ctor":     tv_models.resnet50,
-        "weights":  lambda: tv_models.ResNet50_Weights.IMAGENET1K_V2,
+        "ctor": tv_models.resnet50,
+        "weights": lambda: tv_models.ResNet50_Weights.IMAGENET1K_V2,
         "channels": (256, 512, 1024, 2048),
     },
 }
@@ -59,7 +59,9 @@ class ResNetUNet(BaseSegModel):
     def __init__(self, num_classes=NUM_CLASSES, depth=34, pretrained=True, **_unused):
         super().__init__()
         if depth not in _RESNET_SPECS:
-            raise ValueError(f"Unsupported ResNet depth {depth}; choose from {sorted(_RESNET_SPECS)}")
+            raise ValueError(
+                f"Unsupported ResNet depth {depth}; choose from {sorted(_RESNET_SPECS)}"
+            )
         spec = _RESNET_SPECS[depth]
 
         weights = spec["weights"]() if pretrained else None
@@ -67,41 +69,43 @@ class ResNetUNet(BaseSegModel):
         c1, c2, c3, c4 = spec["channels"]
 
         # Encoder — split into stages to capture skip features
-        self.stem   = nn.Sequential(backbone.conv1, backbone.bn1, backbone.relu)  # 64ch, H/2
-        self.pool   = backbone.maxpool                                            # H/4
-        self.layer1 = backbone.layer1   # c1, H/4
-        self.layer2 = backbone.layer2   # c2, H/8
-        self.layer3 = backbone.layer3   # c3, H/16
-        self.layer4 = backbone.layer4   # c4, H/32
+        self.stem = nn.Sequential(
+            backbone.conv1, backbone.bn1, backbone.relu
+        )  # 64ch, H/2
+        self.pool = backbone.maxpool  # H/4
+        self.layer1 = backbone.layer1  # c1, H/4
+        self.layer2 = backbone.layer2  # c2, H/8
+        self.layer3 = backbone.layer3  # c3, H/16
+        self.layer4 = backbone.layer4  # c4, H/32
 
         # Decoder — widths derived from encoder channels so 34 & 50 both work
-        self.up4  = nn.ConvTranspose2d(c4, c3 // 2, 2, stride=2)
+        self.up4 = nn.ConvTranspose2d(c4, c3 // 2, 2, stride=2)
         self.dec4 = DoubleConv(c3 // 2 + c3, c3 // 2)
 
-        self.up3  = nn.ConvTranspose2d(c3 // 2, c2 // 2, 2, stride=2)
+        self.up3 = nn.ConvTranspose2d(c3 // 2, c2 // 2, 2, stride=2)
         self.dec3 = DoubleConv(c2 // 2 + c2, c2 // 2)
 
-        self.up2  = nn.ConvTranspose2d(c2 // 2, c1 // 2, 2, stride=2)
+        self.up2 = nn.ConvTranspose2d(c2 // 2, c1 // 2, 2, stride=2)
         self.dec2 = DoubleConv(c1 // 2 + c1, 128)
 
-        self.up1  = nn.ConvTranspose2d(128, 64, 2, stride=2)
-        self.dec1 = DoubleConv(64 + 64, 32)       # cat stem (64ch, H/2)
+        self.up1 = nn.ConvTranspose2d(128, 64, 2, stride=2)
+        self.dec1 = DoubleConv(64 + 64, 32)  # cat stem (64ch, H/2)
 
         # Final upsample H/2 → H
-        self.up0  = nn.ConvTranspose2d(32, 32, 2, stride=2)
-        self.out  = nn.Conv2d(32, num_classes, 1)
+        self.up0 = nn.ConvTranspose2d(32, 32, 2, stride=2)
+        self.out = nn.Conv2d(32, num_classes, 1)
 
     def forward(self, x):
-        s0 = self.stem(x)                # 64ch,  H/2
+        s0 = self.stem(x)  # 64ch,  H/2
         s1 = self.layer1(self.pool(s0))  # c1,    H/4
-        s2 = self.layer2(s1)             # c2,    H/8
-        s3 = self.layer3(s2)             # c3,    H/16
-        s4 = self.layer4(s3)             # c4,    H/32
+        s2 = self.layer2(s1)  # c2,    H/8
+        s3 = self.layer3(s2)  # c3,    H/16
+        s4 = self.layer4(s3)  # c4,    H/32
 
         x = self.dec4(torch.cat([self.up4(s4), s3], dim=1))
-        x = self.dec3(torch.cat([self.up3(x),  s2], dim=1))
-        x = self.dec2(torch.cat([self.up2(x),  s1], dim=1))
-        x = self.dec1(torch.cat([self.up1(x),  s0], dim=1))
+        x = self.dec3(torch.cat([self.up3(x), s2], dim=1))
+        x = self.dec2(torch.cat([self.up2(x), s1], dim=1))
+        x = self.dec1(torch.cat([self.up1(x), s0], dim=1))
 
         x = self.up0(x)
         return self.out(x)

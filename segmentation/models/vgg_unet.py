@@ -39,8 +39,8 @@ class VGGUNet(BaseSegModel):
         vgg = tv_models.vgg16(weights=weights)
         f = list(vgg.features.children())
 
-        self.enc1 = nn.Sequential(*f[0:5])    # 64ch,  stride 2
-        self.enc2 = nn.Sequential(*f[5:10])   # 128ch, stride 4
+        self.enc1 = nn.Sequential(*f[0:5])  # 64ch,  stride 2
+        self.enc2 = nn.Sequential(*f[5:10])  # 128ch, stride 4
         self.enc3 = nn.Sequential(*f[10:17])  # 256ch, stride 8
         self.enc4 = nn.Sequential(*f[17:24])  # 512ch, stride 16
         self.enc5 = nn.Sequential(*f[24:31])  # 512ch, stride 32
@@ -68,16 +68,16 @@ class VGGUNet(BaseSegModel):
         self.out = nn.Conv2d(32, num_classes, 1)
 
     def forward(self, x):
-        s1 = self.enc1(x)   # 64,  H/2
+        s1 = self.enc1(x)  # 64,  H/2
         s2 = self.enc2(s1)  # 128, H/4
         s3 = self.enc3(s2)  # 256, H/8
         s4 = self.enc4(s3)  # 512, H/16
         s5 = self.enc5(s4)  # 512, H/32
 
         x = self.dec5(torch.cat([self.up5(s5), s4], dim=1))
-        x = self.dec4(torch.cat([self.up4(x),  s3], dim=1))
-        x = self.dec3(torch.cat([self.up3(x),  s2], dim=1))
-        x = self.dec2(torch.cat([self.up2(x),  s1], dim=1))
+        x = self.dec4(torch.cat([self.up4(x), s3], dim=1))
+        x = self.dec3(torch.cat([self.up3(x), s2], dim=1))
+        x = self.dec2(torch.cat([self.up2(x), s1], dim=1))
 
         x = self.dec1(self.up1(x))
         return self.out(x)

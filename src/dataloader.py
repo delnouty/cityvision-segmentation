@@ -8,20 +8,20 @@ import numpy as np
 
 # Remapping + weights mirrored from training scripts (used for sampler only)
 _TARGET_CLASSES = {7: 1, 11: 2, 21: 3, 23: 4, 24: 5, 26: 6, 20: 7, 33: 8}
-_CLASS_WEIGHTS  = [0.5, 1.0, 1.0, 1.0, 1.0, 2.5, 1.0, 3.0, 3.0]
+_CLASS_WEIGHTS = [0.5, 1.0, 1.0, 1.0, 1.0, 2.5, 1.0, 3.0, 3.0]
 
 
 def get_cityscapes_pairs(img_root, mask_root, split="train"):
-    img_dir  = os.path.join(img_root, split)
+    img_dir = os.path.join(img_root, split)
     mask_dir = os.path.join(mask_root, split)
 
     img_paths = sorted(glob(os.path.join(img_dir, "*", "*_leftImg8bit.png")))
     pairs = []
 
     for img_path in img_paths:
-        city     = os.path.basename(os.path.dirname(img_path))
+        city = os.path.basename(os.path.dirname(img_path))
         filename = os.path.basename(img_path)
-        base     = filename.replace("_leftImg8bit.png", "")
+        base = filename.replace("_leftImg8bit.png", "")
         mask_path = os.path.join(mask_dir, city, base + "_gtFine_labelIds.png")
 
         if os.path.exists(mask_path):
@@ -35,27 +35,30 @@ def get_cityscapes_pairs(img_root, mask_root, split="train"):
 
 class CityscapesDataset(Dataset):
     def __init__(self, pairs, img_size=(512, 1024)):
-        self.pairs    = pairs
+        self.pairs = pairs
         self.img_size = img_size
 
-        self.img_transform = T.Compose([
-            T.Resize(img_size),
-            T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406],
-                        std=[0.229, 0.224, 0.225]),
-        ])
-        self.mask_transform = T.Compose([
-            T.Resize(img_size, interpolation=T.InterpolationMode.NEAREST),
-        ])
+        self.img_transform = T.Compose(
+            [
+                T.Resize(img_size),
+                T.ToTensor(),
+                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
+        self.mask_transform = T.Compose(
+            [
+                T.Resize(img_size, interpolation=T.InterpolationMode.NEAREST),
+            ]
+        )
 
     def __len__(self):
         return len(self.pairs)
 
     def __getitem__(self, idx):
         img_path, mask_path = self.pairs[idx]
-        img  = Image.open(img_path).convert("RGB")
+        img = Image.open(img_path).convert("RGB")
         mask = Image.open(mask_path)
-        img  = self.img_transform(img)
+        img = self.img_transform(img)
         mask = self.mask_transform(mask)
         mask = torch.from_numpy(np.array(mask)).long()
         return img, mask
@@ -73,7 +76,7 @@ def _compute_sample_weights(dataset: CityscapesDataset) -> list:
     print(f"Computing class-balanced sample weights for {len(dataset)} images...")
     weights = []
     for _, mask_path in dataset.pairs:
-        raw      = np.array(Image.open(mask_path))
+        raw = np.array(Image.open(mask_path))
         remapped = np.zeros_like(raw, dtype=np.int32)
         for src, dst in _TARGET_CLASSES.items():
             remapped[raw == src] = dst
@@ -88,7 +91,9 @@ def _compute_sample_weights(dataset: CityscapesDataset) -> list:
     return weights
 
 
-def create_dataloaders(img_root, mask_root, batch_size=4, balanced=False, img_size=(512, 1024)):
+def create_dataloaders(
+    img_root, mask_root, batch_size=4, balanced=False, img_size=(512, 1024)
+):
     """
     Args:
         balanced: if True, use WeightedRandomSampler so that batches are
@@ -98,10 +103,10 @@ def create_dataloaders(img_root, mask_root, batch_size=4, balanced=False, img_si
                   GPU memory — reduce batch_size if you hit OOM.
     """
     train_pairs = get_cityscapes_pairs(img_root, mask_root, split="train")
-    val_pairs   = get_cityscapes_pairs(img_root, mask_root, split="val")
+    val_pairs = get_cityscapes_pairs(img_root, mask_root, split="val")
 
     train_ds = CityscapesDataset(train_pairs, img_size=img_size)
-    val_ds   = CityscapesDataset(val_pairs, img_size=img_size)
+    val_ds = CityscapesDataset(val_pairs, img_size=img_size)
 
     if balanced:
         sample_weights = _compute_sample_weights(train_ds)
@@ -112,33 +117,42 @@ def create_dataloaders(img_root, mask_root, batch_size=4, balanced=False, img_si
         )
         # shuffle=True is mutually exclusive with sampler
         train_loader = DataLoader(
-            train_ds, batch_size=batch_size,
-            sampler=sampler, num_workers=0, pin_memory=True,
+            train_ds,
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=0,
+            pin_memory=True,
         )
     else:
         train_loader = DataLoader(
-            train_ds, batch_size=batch_size,
-            shuffle=True, num_workers=0, pin_memory=True,
+            train_ds,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=0,
+            pin_memory=True,
         )
 
     val_loader = DataLoader(
-        val_ds, batch_size=batch_size,
-        shuffle=False, num_workers=0, pin_memory=True,
+        val_ds,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
+        pin_memory=True,
     )
 
     return train_loader, val_loader
 
 
 if __name__ == "__main__":
-    img_root  = "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit"
+    img_root = "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit"
     mask_root = "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine"
 
     train_loader, val_loader = create_dataloaders(img_root, mask_root, balanced=True)
 
     print("Train batches:", len(train_loader))
-    print("Val batches:",   len(val_loader))
+    print("Val batches:", len(val_loader))
 
     for img, mask in train_loader:
         print("Image shape:", img.shape)
-        print("Mask shape:",  mask.shape)
+        print("Mask shape:", mask.shape)
         break

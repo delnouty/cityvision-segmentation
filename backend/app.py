@@ -44,15 +44,19 @@ def _load_model() -> None:
     global segmenter
     segmenter = Segmenter()
     info = segmenter.info()
-    print(f"[CityVision] Loaded {info['architecture']} "
-          f"({info['checkpoint']}) on {info['device']}.")
+    print(
+        f"[CityVision] Loaded {info['architecture']} "
+        f"({info['checkpoint']}) on {info['device']}."
+    )
 
 
 def _read_image(data: bytes) -> Image.Image:
     try:
         return Image.open(io.BytesIO(data))
     except UnidentifiedImageError:
-        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+        raise HTTPException(
+            status_code=400, detail="Uploaded file is not a valid image."
+        )
 
 
 def _png_response(image: Image.Image) -> StreamingResponse:

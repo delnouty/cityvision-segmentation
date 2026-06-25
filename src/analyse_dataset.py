@@ -1,5 +1,6 @@
 import os
-import sys
+
+# import sys
 import csv
 import numpy as np
 from glob import glob
@@ -8,16 +9,16 @@ from tqdm import tqdm
 
 # Full Cityscapes label set (labelId 0-33)
 CITYSCAPES_CLASSES = {
-    0:  "unlabeled",
-    1:  "ego vehicle",
-    2:  "rectification border",
-    3:  "out of roi",
-    4:  "static",
-    5:  "dynamic",
-    6:  "ground",
-    7:  "road",
-    8:  "sidewalk",
-    9:  "parking",
+    0: "unlabeled",
+    1: "ego vehicle",
+    2: "rectification border",
+    3: "out of roi",
+    4: "static",
+    5: "dynamic",
+    6: "ground",
+    7: "road",
+    8: "sidewalk",
+    9: "parking",
     10: "rail track",
     11: "building",
     12: "wall",
@@ -46,7 +47,9 @@ CITYSCAPES_CLASSES = {
 
 
 def analyse_split(mask_dir, split, csv_writer):
-    mask_paths = sorted(glob(os.path.join(mask_dir, split, "*", "*_gtFine_labelIds.png")))
+    mask_paths = sorted(
+        glob(os.path.join(mask_dir, split, "*", "*_gtFine_labelIds.png"))
+    )
     if not mask_paths:
         print(f"  No masks found in {split}")
         return
@@ -75,14 +78,27 @@ def analyse_split(mask_dir, split, csv_writer):
             continue
         pct_px = 100.0 * pixel_counts[label_id] / total_pixels
         name = CITYSCAPES_CLASSES[label_id]
-        print(f"  {label_id:>3}  {name:<22}  {pixel_counts[label_id]:>12,}  {pct_px:>8.2f}%  {image_counts[label_id]:>7}")
-        csv_writer.writerow([split, label_id, name, int(pixel_counts[label_id]),
-                             round(pct_px, 4), int(image_counts[label_id]), total_images])
+        print(
+            f"  {label_id:>3}  {name:<22}  {pixel_counts[label_id]:>12,}  {pct_px:>8.2f}%  {image_counts[label_id]:>7}"
+        )
+        csv_writer.writerow(
+            [
+                split,
+                label_id,
+                name,
+                int(pixel_counts[label_id]),
+                round(pct_px, 4),
+                int(image_counts[label_id]),
+                total_images,
+            ]
+        )
 
 
 def main():
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    mask_root = os.path.join(project_root, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine")
+    mask_root = os.path.join(
+        project_root, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine"
+    )
     csv_path = os.path.join(project_root, "dataset_analysis.csv")
 
     if not os.path.exists(mask_root):
@@ -91,7 +107,17 @@ def main():
 
     with open(csv_path, "w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["split", "label_id", "class_name", "pixels", "pct_pixels", "images", "total_images"])
+        writer.writerow(
+            [
+                "split",
+                "label_id",
+                "class_name",
+                "pixels",
+                "pct_pixels",
+                "images",
+                "total_images",
+            ]
+        )
         for split in ("train", "val"):
             analyse_split(mask_root, split, writer)
 

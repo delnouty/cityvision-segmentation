@@ -14,16 +14,20 @@ from .vgg_unet import VGGUNet
 
 # name → builder(num_classes, pretrained, dropout, **kwargs) -> nn.Module
 ARCHITECTURES = {
-    "unet":     lambda **kw: UNet(**kw),
+    "unet": lambda **kw: UNet(**kw),
     "resnet34": lambda **kw: ResNetUNet(depth=34, **kw),
     "resnet50": lambda **kw: ResNetUNet(depth=50, **kw),
-    "segnet":   lambda **kw: SegNet(**kw),
-    "vgg":      lambda **kw: VGGUNet(**kw),
+    "segnet": lambda **kw: SegNet(**kw),
+    "vgg": lambda **kw: VGGUNet(**kw),
 }
 
 
-def build_model(name: str, num_classes: int = NUM_CLASSES,
-                pretrained: bool = True, dropout: float = 0.3) -> BaseSegModel:
+def build_model(
+    name: str,
+    num_classes: int = NUM_CLASSES,
+    pretrained: bool = True,
+    dropout: float = 0.3,
+) -> BaseSegModel:
     """Instantiate an architecture by name.
 
     Extra kwargs (pretrained, dropout) are accepted by every model — those that

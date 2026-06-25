@@ -4,17 +4,20 @@ import torch
 import torch.nn as nn
 
 # Default per-class weights (background down-weighted, rare objects up-weighted).
-DEFAULT_CLASS_WEIGHTS = torch.tensor([
-    0.5,   # background
-    1.0,   # road
-    1.0,   # building
-    1.0,   # vegetation
-    1.0,   # sky
-    2.0,   # person
-    1.0,   # car
-    2.0,   # traffic_sign
-    2.0,   # bicycle
-], dtype=torch.float32)
+DEFAULT_CLASS_WEIGHTS = torch.tensor(
+    [
+        0.5,  # background
+        1.0,  # road
+        1.0,  # building
+        1.0,  # vegetation
+        1.0,  # sky
+        2.0,  # person
+        1.0,  # car
+        2.0,  # traffic_sign
+        2.0,  # bicycle
+    ],
+    dtype=torch.float32,
+)
 
 
 class DiceLoss(nn.Module):
@@ -29,12 +32,12 @@ class DiceLoss(nn.Module):
         self.smooth = smooth
 
     def forward(self, logits, targets):
-        probs   = torch.softmax(logits, dim=1)
+        probs = torch.softmax(logits, dim=1)
         one_hot = torch.zeros_like(probs).scatter_(1, targets.unsqueeze(1), 1.0)
-        dims  = (0, 2, 3)
-        inter = (probs * one_hot).sum(dim=dims)        # (C,)
-        denom = (probs + one_hot).sum(dim=dims)        # (C,)
-        dice  = (2.0 * inter + self.smooth) / (denom + self.smooth)
+        dims = (0, 2, 3)
+        inter = (probs * one_hot).sum(dim=dims)  # (C,)
+        denom = (probs + one_hot).sum(dim=dims)  # (C,)
+        dice = (2.0 * inter + self.smooth) / (denom + self.smooth)
         return 1.0 - (dice * self.weights).sum() / self.weights.sum()
 
 
@@ -43,7 +46,7 @@ class CombinedLoss(nn.Module):
 
     def __init__(self, class_weights):
         super().__init__()
-        self.ce   = nn.CrossEntropyLoss(weight=class_weights)
+        self.ce = nn.CrossEntropyLoss(weight=class_weights)
         self.dice = DiceLoss(class_weights)
 
     def forward(self, logits, targets):

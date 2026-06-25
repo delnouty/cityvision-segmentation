@@ -1,0 +1,21 @@
+# Pre-commit hooks for CityVision.
+# Install once:   pre-commit install
+# Run manually:   pre-commit run --all-files
+#
+# Notebooks (.ipynb) are intentionally out of scope — the hooks below only run
+# on .py files, and the notebooks/ directory is excluded explicitly.
+
+exclude: '^(notebooks/|.*/notebooks/|data/|backend/model/)'
+
+repos:
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 26.5.1
+    hooks:
+      - id: black
+        # config (line length, excludes) comes from pyproject.toml [tool.black]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
+    hooks:
+      - id: flake8
+        # config comes from .flake8

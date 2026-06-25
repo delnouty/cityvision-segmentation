@@ -1,0 +1,20 @@
+[flake8]
+max-line-length = 88
+# Black compatibility: E203 (whitespace before ':') and W503 (line break before
+# binary operator) conflict with Black's formatting, so we ignore them.
+# E402: several modules intentionally insert sys.path before importing local
+# packages (src/, frontend/); this is a deliberate, repo-wide pattern.
+# E501: line length is owned by Black (88 cols); Black intentionally leaves a
+# few long string/comment lines, so we don't double-enforce here.
+extend-ignore = E203, W503, E402, E501
+exclude =
+    .git,
+    .venv,
+    __pycache__,
+    data,
+    mlruns,
+    backend/model,
+    notebooks,
+    .ipynb_checkpoints
+# Notebooks are excluded; keep linting to source .py files.
+max-complexity = 15

@@ -33,10 +33,10 @@ class UNet(BaseSegModel):
     def __init__(self, num_classes=NUM_CLASSES, dropout=0.3, **_unused):
         super().__init__()
 
-        self.down1 = DoubleConv(3, 32)            # shallow — no dropout
+        self.down1 = DoubleConv(3, 32)  # shallow — no dropout
         self.pool1 = nn.MaxPool2d(2)
 
-        self.down2 = DoubleConv(32, 64)           # shallow — no dropout
+        self.down2 = DoubleConv(32, 64)  # shallow — no dropout
         self.pool2 = nn.MaxPool2d(2)
 
         self.down3 = DoubleConv(64, 128, dropout=dropout)
@@ -62,10 +62,14 @@ class UNet(BaseSegModel):
         self.out = nn.Conv2d(32, num_classes, 1)
 
     def forward(self, x):
-        c1 = self.down1(x);  p1 = self.pool1(c1)
-        c2 = self.down2(p1); p2 = self.pool2(c2)
-        c3 = self.down3(p2); p3 = self.pool3(c3)
-        c4 = self.down4(p3); p4 = self.pool4(c4)
+        c1 = self.down1(x)
+        p1 = self.pool1(c1)
+        c2 = self.down2(p1)
+        p2 = self.pool2(c2)
+        c3 = self.down3(p2)
+        p3 = self.pool3(c3)
+        c4 = self.down4(p3)
+        p4 = self.pool4(c4)
 
         bn = self.bottleneck(p4)
 

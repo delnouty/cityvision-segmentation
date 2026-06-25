@@ -17,7 +17,7 @@ from dataloader import create_dataloaders
 print("FILE EXECUTED")
 
 TARGET_CLASSES = {
-    7:  1,  # road
+    7: 1,  # road
     11: 2,  # building
     21: 3,  # vegetation
     23: 4,  # sky
@@ -27,8 +27,17 @@ TARGET_CLASSES = {
     33: 8,  # bicycle
 }
 
-CLASS_NAMES = ["background", "road", "building", "vegetation",
-               "sky", "person", "car", "traffic_sign", "bicycle"]
+CLASS_NAMES = [
+    "background",
+    "road",
+    "building",
+    "vegetation",
+    "sky",
+    "person",
+    "car",
+    "traffic_sign",
+    "bicycle",
+]
 
 NUM_CLASSES = 9  # 0 = background + 8 objects
 
@@ -44,6 +53,7 @@ def remap_mask(mask):
 # ============================================================
 # 2. U-NET
 # ============================================================
+
 
 class DoubleConv(nn.Module):
     def __init__(self, in_ch, out_ch, dropout=0.0):
@@ -66,10 +76,10 @@ class UNet(nn.Module):
     def __init__(self, num_classes=NUM_CLASSES, dropout=0.3):
         super().__init__()
 
-        self.down1 = DoubleConv(3, 32)            # shallow — no dropout
+        self.down1 = DoubleConv(3, 32)  # shallow — no dropout
         self.pool1 = nn.MaxPool2d(2)
 
-        self.down2 = DoubleConv(32, 64)           # shallow — no dropout
+        self.down2 = DoubleConv(32, 64)  # shallow — no dropout
         self.pool2 = nn.MaxPool2d(2)
 
         self.down3 = DoubleConv(64, 128, dropout=dropout)
@@ -132,22 +142,26 @@ class UNet(nn.Module):
 # 3. LOSS  —  CE + Dice
 # ============================================================
 
-class_weights = torch.tensor([
-    0.5,   # background
-    1.0,   # road
-    1.0,   # building
-    1.0,   # vegetation
-    1.0,   # sky
-    2.5,   # person
-    1.0,   # car
-    3.0,   # traffic_sign
-    3.0,   # bicycle
-], dtype=torch.float32)
+class_weights = torch.tensor(
+    [
+        0.5,  # background
+        1.0,  # road
+        1.0,  # building
+        1.0,  # vegetation
+        1.0,  # sky
+        2.5,  # person
+        1.0,  # car
+        3.0,  # traffic_sign
+        3.0,  # bicycle
+    ],
+    dtype=torch.float32,
+)
 
 
 class DiceLoss(nn.Module):
     """Weighted Dice: per-class scores are averaged using class_weights,
     so rare classes (motorcycle, bus) pull the loss up more than background."""
+
     def __init__(self, class_weights, smooth=1.0):
         super().__init__()
         # Normalise so weights sum to num_classes — keeps Dice on unit scale.
@@ -156,20 +170,21 @@ class DiceLoss(nn.Module):
         self.smooth = smooth
 
     def forward(self, logits, targets):
-        probs   = torch.softmax(logits, dim=1)
+        probs = torch.softmax(logits, dim=1)
         one_hot = torch.zeros_like(probs).scatter_(1, targets.unsqueeze(1), 1.0)
-        dims  = (0, 2, 3)
-        inter = (probs * one_hot).sum(dim=dims)        # (C,)
-        denom = (probs + one_hot).sum(dim=dims)        # (C,)
-        dice  = (2.0 * inter + self.smooth) / (denom + self.smooth)  # (C,)
+        dims = (0, 2, 3)
+        inter = (probs * one_hot).sum(dim=dims)  # (C,)
+        denom = (probs + one_hot).sum(dim=dims)  # (C,)
+        dice = (2.0 * inter + self.smooth) / (denom + self.smooth)  # (C,)
         return 1.0 - (dice * self.weights).sum() / self.weights.sum()
 
 
 class CombinedLoss(nn.Module):
     """CE(weighted) + Dice(weighted) — both terms are class-sensitive."""
+
     def __init__(self, class_weights):
         super().__init__()
-        self.ce   = nn.CrossEntropyLoss(weight=class_weights)
+        self.ce = nn.CrossEntropyLoss(weight=class_weights)
         self.dice = DiceLoss(class_weights)
 
     def forward(self, logits, targets):
@@ -183,6 +198,7 @@ criterion = CombinedLoss(class_weights)
 # 4. METRICS
 # ============================================================
 
+
 class SegmentationMetrics:
     """Accumulates confusion matrix across batches, computes IoU and pixel accuracy."""
 
@@ -195,10 +211,12 @@ class SegmentationMetrics:
         preds = preds.cpu().numpy().ravel()
         targets = targets.cpu().numpy().ravel()
         mask = (targets >= 0) & (targets < self.num_classes)
-        combined = self.num_classes * targets[mask].astype(np.int64) + preds[mask].astype(np.int64)
-        self.confusion += np.bincount(combined, minlength=self.num_classes ** 2).reshape(
-            self.num_classes, self.num_classes
-        )
+        combined = self.num_classes * targets[mask].astype(np.int64) + preds[
+            mask
+        ].astype(np.int64)
+        self.confusion += np.bincount(
+            combined, minlength=self.num_classes**2
+        ).reshape(self.num_classes, self.num_classes)
 
     def pixel_accuracy(self):
         correct = np.diag(self.confusion).sum()
@@ -224,6 +242,7 @@ class SegmentationMetrics:
 # ============================================================
 # 5. TRAIN / VALIDATE
 # ============================================================
+
 
 def train_one_epoch(model, loader, optimizer, device):
     model.train()
@@ -274,6 +293,7 @@ def validate(model, loader, device):
 # 6. MAIN
 # ============================================================
 
+
 def main():
     if torch.cuda.is_available():
         device = "cuda"
@@ -283,14 +303,21 @@ def main():
         print("Device: CPU (CUDA not available, training will be slow)")
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    img_root = os.path.join(project_root, "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit")
-    mask_root = os.path.join(project_root, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine")
+    img_root = os.path.join(
+        project_root,
+        "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit",
+    )
+    mask_root = os.path.join(
+        project_root, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine"
+    )
     checkpoint_path = os.path.join(project_root, "backend", "model", "unet_best.pth")
     batch_size = 8
     lr = 1e-4
     epochs = 60
 
-    train_loader, val_loader = create_dataloaders(img_root, mask_root, batch_size=batch_size, balanced=True)
+    train_loader, val_loader = create_dataloaders(
+        img_root, mask_root, batch_size=batch_size, balanced=True
+    )
 
     dropout = 0.3
     model = UNet(dropout=dropout).to(device)
@@ -303,25 +330,29 @@ def main():
     mlflow.set_experiment("urban-segmentation")
 
     with mlflow.start_run(run_name="UNet"):
-        mlflow.log_params({
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "lr": lr,
-            "img_size": "256x512",
-            "num_classes": NUM_CLASSES,
-            "optimizer": "Adam",
-            "architecture": "UNet",
-            "loss": "CE+Dice(weighted)",
-            "sampler": "WeightedRandom",
-            "dropout": dropout,
-        })
+        mlflow.log_params(
+            {
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "lr": lr,
+                "img_size": "256x512",
+                "num_classes": NUM_CLASSES,
+                "optimizer": "Adam",
+                "architecture": "UNet",
+                "loss": "CE+Dice(weighted)",
+                "sampler": "WeightedRandom",
+                "dropout": dropout,
+            }
+        )
 
         best_val_miou = 0.0
 
         for epoch in range(1, epochs + 1):
             print(f"\n=== EPOCH {epoch}/{epochs} ===")
 
-            train_loss, train_m = train_one_epoch(model, train_loader, optimizer, device)
+            train_loss, train_m = train_one_epoch(
+                model, train_loader, optimizer, device
+            )
             val_loss, val_m = validate(model, val_loader, device)
 
             train_miou = train_m.mean_iou()
@@ -331,7 +362,9 @@ def main():
             train_iou = train_m.iou_per_class()
 
             print(f"Train loss: {train_loss:.4f}  mIoU: {train_miou:.4f}")
-            print(f"Val   loss: {val_loss:.4f}  mIoU: {val_miou:.4f}  PixAcc: {val_pix_acc:.4f}")
+            print(
+                f"Val   loss: {val_loss:.4f}  mIoU: {val_miou:.4f}  PixAcc: {val_pix_acc:.4f}"
+            )
             print(f"\n  {'Class':<15s}  {'Train IoU':>9}  {'Val IoU':>9}")
             print(f"  {'-'*15}  {'-'*9}  {'-'*9}")
             for cls_idx, name in enumerate(CLASS_NAMES):
@@ -343,13 +376,16 @@ def main():
                 print(f"  {name:<15s}  {t_str:>9}  {v_str:>9}  {bar}")
             print()
 
-            mlflow.log_metrics({
-                "train_loss": train_loss,
-                "train_mIoU": train_miou,
-                "val_loss": val_loss,
-                "val_mIoU": val_miou,
-                "val_pixel_accuracy": val_pix_acc,
-            }, step=epoch)
+            mlflow.log_metrics(
+                {
+                    "train_loss": train_loss,
+                    "train_mIoU": train_miou,
+                    "val_loss": val_loss,
+                    "val_mIoU": val_miou,
+                    "val_pixel_accuracy": val_pix_acc,
+                },
+                step=epoch,
+            )
 
             for cls_idx, name in enumerate(CLASS_NAMES):
                 v_iou = val_iou[cls_idx]

@@ -20,7 +20,7 @@ from dataloader import create_dataloaders  # noqa: E402  (path set above)
 # Cityscapes labelIds → 8 foreground objects + background
 # ------------------------------------------------------------------
 TARGET_CLASSES = {
-    7:  1,  # road
+    7: 1,  # road
     11: 2,  # building
     21: 3,  # vegetation
     23: 4,  # sky
@@ -30,8 +30,17 @@ TARGET_CLASSES = {
     33: 8,  # bicycle
 }
 
-CLASS_NAMES = ["background", "road", "building", "vegetation",
-               "sky", "person", "car", "traffic_sign", "bicycle"]
+CLASS_NAMES = [
+    "background",
+    "road",
+    "building",
+    "vegetation",
+    "sky",
+    "person",
+    "car",
+    "traffic_sign",
+    "bicycle",
+]
 
 NUM_CLASSES = 9  # 0 = background + 8 objects
 

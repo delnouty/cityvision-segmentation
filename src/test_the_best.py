@@ -55,33 +55,45 @@ from dataloader import get_cityscapes_pairs, CityscapesDataset
 # ============================================================
 
 TARGET_CLASSES = {
-    7:  1,   # road
-    11: 2,   # building
-    21: 3,   # vegetation
-    23: 4,   # sky
-    24: 5,   # person
-    26: 6,   # car
-    20: 7,   # traffic_sign
-    33: 8,   # bicycle
+    7: 1,  # road
+    11: 2,  # building
+    21: 3,  # vegetation
+    23: 4,  # sky
+    24: 5,  # person
+    26: 6,  # car
+    20: 7,  # traffic_sign
+    33: 8,  # bicycle
 }
 
-CLASS_NAMES = ["background", "road", "building", "vegetation",
-               "sky", "person", "car", "traffic_sign", "bicycle"]
+CLASS_NAMES = [
+    "background",
+    "road",
+    "building",
+    "vegetation",
+    "sky",
+    "person",
+    "car",
+    "traffic_sign",
+    "bicycle",
+]
 
 NUM_CLASSES = 9
 
 # Cityscapes-style RGB palette, one colour per remapped class (0-8).
-PALETTE = np.array([
-    (0,   0,   0),     # background
-    (128, 64,  128),   # road
-    (70,  70,  70),    # building
-    (107, 142, 35),    # vegetation
-    (70,  130, 180),   # sky
-    (220, 20,  60),    # person
-    (0,   0,   142),   # car
-    (220, 220, 0),     # traffic_sign
-    (119, 11,  32),    # bicycle
-], dtype=np.uint8)
+PALETTE = np.array(
+    [
+        (0, 0, 0),  # background
+        (128, 64, 128),  # road
+        (70, 70, 70),  # building
+        (107, 142, 35),  # vegetation
+        (70, 130, 180),  # sky
+        (220, 20, 60),  # person
+        (0, 0, 142),  # car
+        (220, 220, 0),  # traffic_sign
+        (119, 11, 32),  # bicycle
+    ],
+    dtype=np.uint8,
+)
 
 # ImageNet normalization used by the dataloader — needed to de-normalize
 # images back to a displayable RGB range.
@@ -92,17 +104,18 @@ EXPERIMENT = "urban-segmentation"
 
 # architecture (as logged in the "architecture" MLflow param) -> checkpoint file
 CKPT_BY_ARCH = {
-    "UNet":          "unet_best.pth",
+    "UNet": "unet_best.pth",
     "ResNet34-UNet": "resnet_best.pth",
     "ResNet50-UNet": "resnet50_best.pth",
-    "VGG16-UNet":    "vgg_best.pth",
-    "SegNet":        "segnet_best.pth",
+    "VGG16-UNet": "vgg_best.pth",
+    "SegNet": "segnet_best.pth",
 }
 
 
 # ============================================================
 # Helpers
 # ============================================================
+
 
 def remap_mask(mask: torch.Tensor) -> torch.Tensor:
     """Map raw Cityscapes labelIds to the 9-class training scheme."""
@@ -128,18 +141,23 @@ def build_model(arch: str, num_classes: int) -> torch.nn.Module:
     """Instantiate the model class matching the logged architecture name."""
     if arch == "UNet":
         from training import UNet
+
         return UNet(num_classes=num_classes)
     if arch == "ResNet34-UNet":
         from training_resnet import ResNetUNet
+
         return ResNetUNet(num_classes=num_classes, pretrained=False)
     if arch == "ResNet50-UNet":
         from training_resnet50 import ResNet50UNet
+
         return ResNet50UNet(num_classes=num_classes, pretrained=False)
     if arch == "VGG16-UNet":
         from training_vgg import VGGUNet
+
         return VGGUNet(num_classes=num_classes, pretrained=False)
     if arch == "SegNet":
         from training_segnet import SegNet
+
         return SegNet(num_classes=num_classes)
     raise ValueError(f"Unknown architecture: {arch!r}")
 
@@ -172,29 +190,52 @@ def select_best_model(project_root: str):
 
     raise RuntimeError(
         "No run with a logged architecture has a matching checkpoint in "
-        f"{model_dir}. Train a model first.")
+        f"{model_dir}. Train a model first."
+    )
 
 
 # ============================================================
 # Main
 # ============================================================
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Visualize the best model on random examples.")
-    parser.add_argument("--split", default="test", choices=["test", "val", "train"],
-                        help="Dataset split to sample from (default: test).")
-    parser.add_argument("--num", type=int, default=2,
-                        help="Number of random examples (default: 2).")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed for example selection (default: 42).")
-    parser.add_argument("--output", default=None,
-                        help="Output image path (default: <project_root>/test_the_best_predictions.png).")
+    parser = argparse.ArgumentParser(
+        description="Visualize the best model on random examples."
+    )
+    parser.add_argument(
+        "--split",
+        default="test",
+        choices=["test", "val", "train"],
+        help="Dataset split to sample from (default: test).",
+    )
+    parser.add_argument(
+        "--num", type=int, default=2, help="Number of random examples (default: 2)."
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for example selection (default: 42).",
+    )
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Output image path (default: <project_root>/test_the_best_predictions.png).",
+    )
     args = parser.parse_args()
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    img_root = os.path.join(project_root, "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit")
-    mask_root = os.path.join(project_root, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine")
-    output_path = args.output or os.path.join(project_root, "test_the_best_predictions.png")
+    img_root = os.path.join(
+        project_root,
+        "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit",
+    )
+    mask_root = os.path.join(
+        project_root, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine"
+    )
+    output_path = args.output or os.path.join(
+        project_root, "test_the_best_predictions.png"
+    )
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device: {device}")
@@ -216,9 +257,11 @@ def main():
     dataset = CityscapesDataset(pairs, img_size=(512, 1024))
 
     if args.split == "test":
-        print("NOTE: the Cityscapes 'test' split has no real ground truth — "
-              "the middle 'Ground truth' panel will be all-background. "
-              "Use --split val for real masks.")
+        print(
+            "NOTE: the Cityscapes 'test' split has no real ground truth — "
+            "the middle 'Ground truth' panel will be all-background. "
+            "Use --split val for real masks."
+        )
 
     # --- 3. pick N random examples ---
     n = min(args.num, len(dataset))
@@ -253,16 +296,33 @@ def main():
                     ax.set_ylabel(city, fontsize=11)
 
     # Shared legend for the class palette (two rows so labels stay readable).
-    handles = [mpatches.Patch(facecolor=np.array(PALETTE[i]) / 255.0,
-                              edgecolor="black", linewidth=0.5, label=CLASS_NAMES[i])
-               for i in range(NUM_CLASSES)]
-    fig.legend(handles=handles, loc="lower center", ncol=5,
-               fontsize=12, frameon=True, title="Classes", title_fontsize=13,
-               handlelength=1.6, handleheight=1.6, columnspacing=1.8,
-               bbox_to_anchor=(0.5, 0.0))
+    handles = [
+        mpatches.Patch(
+            facecolor=np.array(PALETTE[i]) / 255.0,
+            edgecolor="black",
+            linewidth=0.5,
+            label=CLASS_NAMES[i],
+        )
+        for i in range(NUM_CLASSES)
+    ]
+    fig.legend(
+        handles=handles,
+        loc="lower center",
+        ncol=5,
+        fontsize=12,
+        frameon=True,
+        title="Classes",
+        title_fontsize=13,
+        handlelength=1.6,
+        handleheight=1.6,
+        columnspacing=1.8,
+        bbox_to_anchor=(0.5, 0.0),
+    )
 
-    fig.suptitle(f"Best model: {arch}  (val mIoU={miou:.4f})  —  split: {args.split}",
-                 fontsize=15)
+    fig.suptitle(
+        f"Best model: {arch}  (val mIoU={miou:.4f})  —  split: {args.split}",
+        fontsize=15,
+    )
     fig.tight_layout(rect=[0, 0.10, 1, 0.97])
     out_dir = os.path.dirname(os.path.abspath(output_path))
     os.makedirs(out_dir, exist_ok=True)

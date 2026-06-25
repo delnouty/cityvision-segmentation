@@ -13,17 +13,19 @@ class SegmentationMetrics:
 
     def update(self, preds: torch.Tensor, targets: torch.Tensor):
         """preds: BxHxW (argmax), targets: BxHxW."""
-        preds   = preds.cpu().numpy().ravel()
+        preds = preds.cpu().numpy().ravel()
         targets = targets.cpu().numpy().ravel()
         mask = (targets >= 0) & (targets < self.num_classes)
-        combined = self.num_classes * targets[mask].astype(np.int64) + preds[mask].astype(np.int64)
-        self.confusion += np.bincount(combined, minlength=self.num_classes ** 2).reshape(
-            self.num_classes, self.num_classes
-        )
+        combined = self.num_classes * targets[mask].astype(np.int64) + preds[
+            mask
+        ].astype(np.int64)
+        self.confusion += np.bincount(
+            combined, minlength=self.num_classes**2
+        ).reshape(self.num_classes, self.num_classes)
 
     def pixel_accuracy(self):
         correct = np.diag(self.confusion).sum()
-        total   = self.confusion.sum()
+        total = self.confusion.sum()
         return float(correct) / float(total) if total > 0 else 0.0
 
     def iou_per_class(self):

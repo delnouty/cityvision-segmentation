@@ -30,12 +30,12 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
     metrics = SegmentationMetrics(NUM_CLASSES)
 
     for imgs, masks in tqdm(loader, desc="Train"):
-        imgs  = imgs.to(device)
+        imgs = imgs.to(device)
         masks = remap_mask(masks).to(device)
 
         optimizer.zero_grad()
         logits = model(imgs)
-        loss   = criterion(logits, masks)
+        loss = criterion(logits, masks)
         loss.backward()
         optimizer.step()
 
@@ -55,7 +55,7 @@ def validate(model, loader, criterion, device):
 
     with torch.no_grad():
         for imgs, masks in tqdm(loader, desc="Val"):
-            imgs  = imgs.to(device)
+            imgs = imgs.to(device)
             masks = remap_mask(masks).to(device)
 
             logits = model(imgs)
@@ -83,14 +83,18 @@ def fit(config: TrainConfig):
     print(f"Architecture: {config.label}  ({config.arch})")
 
     train_loader, val_loader = create_dataloaders(
-        config.img_root, config.mask_root,
-        batch_size=config.batch_size, balanced=config.balanced,
+        config.img_root,
+        config.mask_root,
+        batch_size=config.batch_size,
+        balanced=config.balanced,
         img_size=config.img_size,
     )
 
     model = build_model(
-        config.arch, num_classes=NUM_CLASSES,
-        pretrained=config.pretrained, dropout=config.dropout,
+        config.arch,
+        num_classes=NUM_CLASSES,
+        pretrained=config.pretrained,
+        dropout=config.dropout,
     ).to(device)
 
     criterion = build_criterion().to(device)
@@ -116,31 +120,42 @@ def fit(config: TrainConfig):
         for epoch in range(1, config.epochs + 1):
             print(f"\n=== EPOCH {epoch}/{config.epochs} ===")
 
-            train_loss, train_m = train_one_epoch(model, train_loader, criterion, optimizer, device)
-            val_loss,   val_m   = validate(model, val_loader, criterion, device)
+            train_loss, train_m = train_one_epoch(
+                model, train_loader, criterion, optimizer, device
+            )
+            val_loss, val_m = validate(model, val_loader, criterion, device)
 
-            train_miou  = train_m.mean_iou()
-            val_miou    = val_m.mean_iou()
+            train_miou = train_m.mean_iou()
+            val_miou = val_m.mean_iou()
             val_pix_acc = val_m.pixel_accuracy()
-            train_iou   = train_m.iou_per_class()
-            val_iou     = val_m.iou_per_class()
+            train_iou = train_m.iou_per_class()
+            val_iou = val_m.iou_per_class()
 
             print(f"Train loss: {train_loss:.4f}  mIoU: {train_miou:.4f}")
-            print(f"Val   loss: {val_loss:.4f}  mIoU: {val_miou:.4f}  PixAcc: {val_pix_acc:.4f}")
+            print(
+                f"Val   loss: {val_loss:.4f}  mIoU: {val_miou:.4f}  PixAcc: {val_pix_acc:.4f}"
+            )
             _print_iou_table(train_iou, val_iou)
 
-            mlflow.log_metrics({
-                "train_loss":         train_loss,
-                "train_mIoU":         train_miou,
-                "val_loss":           val_loss,
-                "val_mIoU":           val_miou,
-                "val_pixel_accuracy": val_pix_acc,
-            }, step=epoch)
+            mlflow.log_metrics(
+                {
+                    "train_loss": train_loss,
+                    "train_mIoU": train_miou,
+                    "val_loss": val_loss,
+                    "val_mIoU": val_miou,
+                    "val_pixel_accuracy": val_pix_acc,
+                },
+                step=epoch,
+            )
             for cls_idx, name in enumerate(CLASS_NAMES):
                 if not np.isnan(val_iou[cls_idx]):
-                    mlflow.log_metric(f"val_iou_{name}", float(val_iou[cls_idx]), step=epoch)
+                    mlflow.log_metric(
+                        f"val_iou_{name}", float(val_iou[cls_idx]), step=epoch
+                    )
                 if not np.isnan(train_iou[cls_idx]):
-                    mlflow.log_metric(f"train_iou_{name}", float(train_iou[cls_idx]), step=epoch)
+                    mlflow.log_metric(
+                        f"train_iou_{name}", float(train_iou[cls_idx]), step=epoch
+                    )
 
             if scheduler is not None and not np.isnan(val_miou):
                 scheduler.step(val_miou)
@@ -154,11 +169,15 @@ def fit(config: TrainConfig):
             else:
                 epochs_no_improve += 1
                 if config.patience > 0:
-                    print(f"  → No improvement for {epochs_no_improve}/{config.patience} epoch(s) "
-                          f"(best val mIoU={best_val_miou:.4f})")
+                    print(
+                        f"  → No improvement for {epochs_no_improve}/{config.patience} epoch(s) "
+                        f"(best val mIoU={best_val_miou:.4f})"
+                    )
                     if epochs_no_improve >= config.patience:
-                        print(f"\nEarly stopping triggered at epoch {epoch} "
-                              f"(no improvement for {config.patience} epochs).")
+                        print(
+                            f"\nEarly stopping triggered at epoch {epoch} "
+                            f"(no improvement for {config.patience} epochs)."
+                        )
                         break
 
         print(f"\nTraining complete. Best val mIoU: {best_val_miou:.4f}")
@@ -168,13 +187,17 @@ def fit(config: TrainConfig):
         # Registry. Reload the best checkpoint first so the registered model is
         # the best epoch, not the final one.
         if os.path.exists(config.checkpoint_path):
-            model.load_state_dict(torch.load(config.checkpoint_path, map_location=device))
+            model.load_state_dict(
+                torch.load(config.checkpoint_path, map_location=device)
+            )
         mlflow.pytorch.log_model(
             pytorch_model=model,
             artifact_path="model",
             registered_model_name=config.registered_model_name,
         )
-        print(f"Registered model '{config.registered_model_name}' "
-              f"(MLflow Model Registry, new version).")
+        print(
+            f"Registered model '{config.registered_model_name}' "
+            f"(MLflow Model Registry, new version)."
+        )
 
     return best_val_miou
