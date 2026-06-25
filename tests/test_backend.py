@@ -2,6 +2,7 @@
 inference helpers (backend/inference.py)."""
 
 import io
+import os
 
 import numpy as np
 import pytest
@@ -71,6 +72,11 @@ def test_build_model_returns_correct_classes():
 
 
 def test_select_checkpoint_respects_env_arch(monkeypatch):
+    ckpt_path = os.path.join(
+        inference.MODEL_DIR, inference.CKPT_BY_ARCH["ResNet50-UNet"]
+    )
+    if not os.path.exists(ckpt_path):
+        pytest.skip("ResNet50 checkpoint not present (e.g. CI without weights)")
     monkeypatch.setenv("CITYVISION_ARCH", "ResNet50-UNet")
     monkeypatch.delenv("CITYVISION_CHECKPOINT", raising=False)
     arch, ckpt, miou = inference.select_checkpoint()
