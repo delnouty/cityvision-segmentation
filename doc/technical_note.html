@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CityVision — Technical Note: Backend &amp; Frontend</title>
+<style>
+  :root {
+    --bg:#ffffff; --fg:#1f2430; --muted:#5b6472; --accent:#3b82f6;
+    --line:#e3e7ee; --code-bg:#f5f7fa; --card:#fafbfc;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+         color:var(--fg); background:var(--bg); line-height:1.6; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+  header.title { border-bottom: 3px solid var(--accent); padding-bottom: 16px; margin-bottom: 8px; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  h2 { font-size: 1.3rem; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 22px 0 8px; }
+  .sub { color: var(--muted); font-size: .95rem; }
+  p, li { font-size: .95rem; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 4px;
+         font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .88em; }
+  pre { background: var(--code-bg); border:1px solid var(--line); border-radius: 8px;
+        padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .9rem; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tag { display:inline-block; background:#eef3fe; color:#1d4ed8; border-radius: 999px;
+         padding: 2px 10px; font-size: .78rem; font-weight: 600; }
+  .muted { color: var(--muted); }
+  /* flow diagram */
+  .flow { display:flex; align-items:stretch; gap:0; flex-wrap:wrap; margin: 16px 0; }
+  .node { flex:1 1 150px; background:var(--card); border:1px solid var(--line);
+          border-radius:10px; padding:12px 14px; text-align:center; min-width:140px; }
+  .node b { display:block; }
+  .node small { color:var(--muted); }
+  .arrow { display:flex; align-items:center; justify-content:center; color:var(--accent);
+           font-weight:700; padding: 0 8px; font-size:1.3rem; }
+  /* class legend */
+  .legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin: 10px 0; }
+  .legend .it { display:flex; align-items:center; gap:7px; font-size:.85rem; }
+  .legend .sw { width:15px; height:15px; border-radius:4px; border:1px solid #0002; }
+  .footer { margin-top: 48px; padding-top:16px; border-top:1px solid var(--line);
+            color:var(--muted); font-size:.82rem; }
+  @media (max-width:680px){ .grid{grid-template-columns:1fr;} .arrow{transform:rotate(90deg);} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="title">
+    <span class="tag">Technical Note</span>
+    <h1>CityVision — Segmentation Serving Solution</h1>
+    <p class="sub">Backend prediction API (FastAPI) &amp; presentation frontend (Streamlit)
+       for urban-scene semantic segmentation on Cityscapes.</p>
+  </header>
+
+  <h2>1. Overview</h2>
+  <p>
+    CityVision trains several CNN segmentation models on the Cityscapes dataset and serves the
+    best one through a REST API. The solution has two deployable components:
+  </p>
+  <ul>
+    <li><b>Backend</b> — a <b>FastAPI</b> service that loads a trained model and, given an input
+        image, returns the predicted segmentation mask.</li>
+    <li><b>Frontend</b> — a <b>Streamlit</b> application that consumes the API: it lists available
+        image IDs, triggers prediction for a selected ID, and displays the real image, the real
+        (ground-truth) mask, and the predicted mask side by side.</li>
+  </ul>
+  <p>
+    Both layers reuse the <i>same</i> model classes and the <i>same</i> preprocessing
+    (resize to 512&times;1024 + ImageNet normalization) as the training pipeline, guaranteeing that
+    inference is consistent with how the models were trained.
+  </p>
+
+  <h2>2. Architecture</h2>
+  <div class="flow">
+    <div class="node"><b>Streamlit UI</b><small>image IDs, results</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><b>FastAPI</b><small>/predict, /health</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><b>Segmenter</b><small>preprocess &middot; infer</small></div>
+    <div class="arrow">&rarr;</div>
+    <div class="node"><b>Model (.pth)</b><small>backend/model/</small></div>
+  </div>
+  <p class="muted">
+    The frontend never loads the model — it communicates with the backend over HTTP (multipart
+    image upload &rarr; PNG mask / JSON). Model selection is resolved once at API startup.
+  </p>
+
+  <h2>3. Backend (FastAPI)</h2>
+  <h3>3.1 Modules</h3>
+  <table>
+    <tr><th>File</th><th>Responsibility</th></tr>
+    <tr><td><code>backend/app.py</code></td><td>FastAPI app: endpoints, request handling, a minimal HTML upload page.</td></tr>
+    <tr><td><code>backend/inference.py</code></td><td>Model selection, loading, preprocessing, prediction, output rendering.</td></tr>
+    <tr><td><code>backend/model/*.pth</code></td><td>Trained checkpoints (state dicts) produced by the training scripts.</td></tr>
+  </table>
+
+  <h3>3.2 API reference</h3>
+  <table>
+    <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+    <tr><td>GET</td><td><code>/</code></td><td>HTML upload page (manual testing).</td></tr>
+    <tr><td>GET</td><td><code>/health</code></td><td>Service status + loaded-model info (architecture, checkpoint, val&nbsp;mIoU, device, classes, palette).</td></tr>
+    <tr><td>GET</td><td><code>/docs</code></td><td>Interactive Swagger UI.</td></tr>
+    <tr><td>POST</td><td><code>/predict</code></td><td>Upload an image &rarr; predicted mask as <code>image/png</code>. Query: <code>format=color|overlay|raw</code>, <code>alpha=0..1</code>.</td></tr>
+    <tr><td>POST</td><td><code>/predict/classes</code></td><td>Upload an image &rarr; JSON of detected classes with pixel coverage.</td></tr>
+  </table>
+  <p><b>Output formats.</b> <code>color</code> = colourised mask; <code>overlay</code> = mask blended over the
+     original (controlled by <code>alpha</code>); <code>raw</code> = single-channel PNG of class indices (0–8).
+     Masks are returned at the <b>original image resolution</b>.</p>
+
+  <h3>3.3 Model selection strategy</h3>
+  <p>At startup the API chooses which model to serve, in priority order:</p>
+  <ol>
+    <li><code>CITYVISION_CHECKPOINT</code> — explicit path to a <code>.pth</code> file.</li>
+    <li><code>CITYVISION_ARCH</code> — architecture name.</li>
+    <li>Best run recorded in <code>mlflow.db</code> (highest <code>best_val_mIoU</code> with an available checkpoint).</li>
+    <li>First available checkpoint by quality priority (ResNet50 &rarr; ResNet34 &rarr; VGG16 &rarr; UNet &rarr; SegNet).</li>
+  </ol>
+  <p>This keeps the service deployable even when MLflow is not present, while still defaulting to the
+     best validated model when it is. The current best model is <b>ResNet50-UNet</b>
+     (validation mIoU &asymp; <b>0.816</b>).</p>
+
+  <h2>4. Frontend (Streamlit)</h2>
+  <p><code>frontend/streamlit_app.py</code> is a presentation UI that consumes the API. It implements:</p>
+  <ul>
+    <li><b>Image ID listing</b> — available IDs for a chosen split (<code>val</code>/<code>test</code>/<code>train</code>),
+        built from the same dataloader used in training (<code>get_cityscapes_pairs</code>).</li>
+    <li><b>On-demand prediction</b> — a button POSTs the selected image to the API and retrieves the mask.</li>
+    <li><b>Three-panel comparison</b> — real image · real mask · predicted mask.</li>
+  </ul>
+  <p>Additional aids: API health indicator, overlay toggle with opacity slider, a detected-classes
+     breakdown (with percentages), and a colour legend.</p>
+  <div class="card">
+    <b>Note on ground truth.</b> The Cityscapes <code>test</code> split has no public ground truth, so its
+    "real mask" panel is all-background. Use the <code>val</code> split for a meaningful real-vs-predicted
+    comparison; the app shows an inline note when ground truth is unavailable.
+  </div>
+
+  <h2>5. Model &amp; data</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Architectures</h3>
+      <ul style="margin:0; padding-left:18px">
+        <li>UNet (from scratch)</li>
+        <li>VGG16-UNet (pretrained encoder)</li>
+        <li>SegNet</li>
+        <li>ResNet34-UNet (pretrained encoder)</li>
+        <li>ResNet50-UNet (pretrained encoder) — <b>best</b></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Preprocessing</h3>
+      <ul style="margin:0; padding-left:18px">
+        <li>Resize to 512&times;1024 (H&times;W)</li>
+        <li>ImageNet normalization<br/><span class="muted">mean [0.485,0.456,0.406], std [0.229,0.224,0.225]</span></li>
+        <li>Prediction upsampled back to original size</li>
+      </ul>
+    </div>
+  </div>
+  <h3>Classes (9)</h3>
+  <div class="legend" id="legend"></div>
+
+  <h2>6. Running the solution</h2>
+  <p>From the project root, in two terminals:</p>
+  <h3>6.1 Backend</h3>
+  <pre><code>uvicorn backend.app:app --port 8000
+# UI:    http://localhost:8000/
+# Docs:  http://localhost:8000/docs</code></pre>
+  <h3>6.2 Frontend</h3>
+  <pre><code>streamlit run frontend/streamlit_app.py
+# opens http://localhost:8501</code></pre>
+  <p class="muted">Serve a specific model (optional):
+     <code>CITYVISION_ARCH=VGG16-UNet uvicorn backend.app:app --port 8000</code>
+     (PowerShell: <code>$env:CITYVISION_ARCH="VGG16-UNet"; uvicorn backend.app:app --port 8000</code>).</p>
+
+  <h2>7. Technology stack</h2>
+  <table>
+    <tr><th>Layer</th><th>Technology</th></tr>
+    <tr><td>Modelling</td><td>PyTorch 2.12, torchvision 0.27</td></tr>
+    <tr><td>Experiment tracking</td><td>MLflow 2.22 (SQLite backend, experiment <code>urban-segmentation</code>)</td></tr>
+    <tr><td>Backend API</td><td>FastAPI 0.136, Uvicorn 0.49, python-multipart</td></tr>
+    <tr><td>Frontend</td><td>Streamlit 1.58, requests</td></tr>
+    <tr><td>Imaging / numerics</td><td>Pillow, NumPy, matplotlib</td></tr>
+  </table>
+
+  <h2>8. Repository layout</h2>
+  <pre><code>CityVision/
+├── src/                 # training scripts, dataloader, test_the_best.py
+├── segmentation/        # reusable training package
+├── backend/
+│   ├── app.py           # FastAPI app + endpoints + upload UI
+│   ├── inference.py     # model selection / loading / prediction
+│   └── model/           # trained checkpoints (*.pth)
+├── frontend/
+│   └── streamlit_app.py # Streamlit UI consuming the API
+├── notebooks/           # training_comparison.ipynb
+├── doc/                 # this technical note
+├── mlflow.db            # MLflow tracking store
+└── requirements.txt</code></pre>
+
+  <div class="footer">
+    CityVision — urban scene semantic segmentation. Technical note generated for the
+    backend/frontend serving solution.
+  </div>
+
+</div>
+
+<script>
+  // Class palette must mirror backend/inference.py PALETTE.
+  const CLASSES = [
+    ["background",[0,0,0]], ["road",[128,64,128]], ["building",[70,70,70]],
+    ["vegetation",[107,142,35]], ["sky",[70,130,180]], ["person",[220,20,60]],
+    ["car",[0,0,142]], ["traffic_sign",[220,220,0]], ["bicycle",[119,11,32]]
+  ];
+  const el = document.getElementById("legend");
+  CLASSES.forEach(([name,[r,g,b]]) => {
+    const d = document.createElement("div");
+    d.className = "it";
+    d.innerHTML = `<span class="sw" style="background:rgb(${r},${g},${b})"></span>${name}`;
+    el.appendChild(d);
+  });
+</script>
+</body>
+</html>
