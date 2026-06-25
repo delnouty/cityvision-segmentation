@@ -72,7 +72,7 @@ def test_api_predict_posts_file_and_params(monkeypatch, png_file):
     monkeypatch.setattr(utils.requests, "post", fake_post)
     content = utils.api_predict("http://api:8000", png_file, fmt="overlay", alpha=0.3)
     assert content == b"\x89PNG-bytes"
-    assert captured["url"] == "http://api:8000/predict"
+    assert captured["url"] == "http://api:8000/predict/image"
     assert captured["params"] == {"format": "overlay", "alpha": 0.3}
     assert captured["has_file"] is True
 

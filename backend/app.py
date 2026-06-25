@@ -8,12 +8,14 @@ Endpoints
 ---------
 GET  /                 Minimal HTML page to upload an image and view the mask.
 GET  /health           Service + loaded-model info (JSON).
-POST /predict          Upload an image -> predicted mask.
+POST /predict          Upload an image -> predicted mask as JSON.
+                       Returns: {width, height, classes, palette,
+                                 mask (HxW class indices), detected_classes}.
+POST /predict/image    Upload an image -> predicted mask rendered as a PNG.
                        Query: format=color|overlay|raw (default color),
                               alpha=0.0..1.0 (overlay blend, default 0.5).
-                       Returns: image/png.
 POST /predict/classes  Upload an image -> JSON list of detected classes
-                       with pixel coverage.
+                       with pixel coverage (no per-pixel mask).
 
 Run
 ---
@@ -27,7 +29,7 @@ from fastapi import FastAPI, File, UploadFile, Query, HTTPException
 from fastapi.responses import StreamingResponse, HTMLResponse
 from PIL import Image, UnidentifiedImageError
 
-from backend.inference import Segmenter
+from backend.inference import Segmenter, CLASS_NAMES, PALETTE, NUM_CLASSES
 
 app = FastAPI(
     title="CityVision Segmentation API",
@@ -76,10 +78,52 @@ def health() -> dict:
 @app.post("/predict")
 async def predict(
     file: UploadFile = File(..., description="Image to segment."),
+    encoding: str = Query("dense", pattern="^(dense|rle)$"),
+) -> dict:
+    """Take an image and return the predicted segmentation mask as JSON.
+
+    The mask is a height x width grid of integer class indices (0..8). Use
+    `classes` and `palette` for the index -> name / RGB-colour mapping.
+
+    `encoding`:
+      - `dense` (default): `mask` is the full 2-D grid (one int per pixel).
+      - `rle`: `mask_rle.runs` is a compact list of [class_id, run_length]
+        pairs (row-major) — much smaller for typical masks.
+    """
+    if segmenter is None:
+        raise HTTPException(status_code=503, detail="Model not loaded yet.")
+
+    image = _read_image(await file.read())
+    mask = segmenter.predict(image)
+    height, width = mask.shape
+    payload = {
+        "model": segmenter.arch,
+        "width": int(width),
+        "height": int(height),
+        "num_classes": NUM_CLASSES,
+        "classes": CLASS_NAMES,
+        "palette": [[int(c) for c in PALETTE[i]] for i in range(NUM_CLASSES)],
+        "encoding": encoding,
+        "detected_classes": segmenter.class_summary(mask),
+    }
+    if encoding == "rle":
+        payload["mask_rle"] = {
+            "shape": [int(height), int(width)],
+            "order": "row-major",
+            "runs": segmenter.rle_encode(mask),
+        }
+    else:
+        payload["mask"] = mask.tolist()
+    return payload
+
+
+@app.post("/predict/image")
+async def predict_image(
+    file: UploadFile = File(..., description="Image to segment."),
     format: str = Query("color", pattern="^(color|overlay|raw)$"),
     alpha: float = Query(0.5, ge=0.0, le=1.0),
 ):
-    """Return the predicted mask as a PNG."""
+    """Return the predicted mask rendered as a PNG (for visualisation)."""
     if segmenter is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet.")
 
@@ -188,7 +232,7 @@ _INDEX_HTML = """
       if (!f) return;
       $('go').disabled = true; $('go').textContent = 'Segmenting…';
       const fd = new FormData(); fd.append('file', f);
-      const url = `/predict?format=${$('fmt').value}&alpha=${$('alpha').value}`;
+      const url = `/predict/image?format=${$('fmt').value}&alpha=${$('alpha').value}`;
       const r = await fetch(url, { method: 'POST', body: fd });
       if (r.ok) { const b = await r.blob(); $('out').src = URL.createObjectURL(b); }
       else { alert('Error: ' + (await r.text())); }

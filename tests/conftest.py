@@ -42,6 +42,9 @@ class DummySegmenter:
     def class_summary(self, mask):
         return Segmenter.class_summary(mask)
 
+    def rle_encode(self, mask):
+        return Segmenter.rle_encode(mask)
+
     def info(self):
         return {
             "architecture": self.arch,

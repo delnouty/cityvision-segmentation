@@ -78,10 +78,12 @@ def api_health(api_url: str) -> dict:
 def api_predict(
     api_url: str, img_path: str, fmt: str = "color", alpha: float = 0.5
 ) -> bytes:
+    """Predicted mask rendered as PNG (visualisation). The raw mask-as-JSON
+    is available at POST /predict."""
     with open(img_path, "rb") as f:
         files = {"file": (os.path.basename(img_path), f, "image/png")}
         r = requests.post(
-            f"{api_url}/predict",
+            f"{api_url}/predict/image",
             params={"format": fmt, "alpha": alpha},
             files=files,
             timeout=120,

@@ -246,6 +246,25 @@ class Segmenter:
         return Image.blend(base, color, alpha)
 
     @staticmethod
+    def rle_encode(mask: np.ndarray) -> list:
+        """Row-major run-length encoding of the mask.
+
+        Returns a list of [class_id, run_length] pairs. Reconstruct with:
+            flat = np.concatenate([np.full(n, c) for c, n in runs])
+            mask = flat.reshape(height, width)
+        Far smaller than the dense grid for segmentation masks (large
+        contiguous regions of the same class).
+        """
+        flat = mask.reshape(-1)
+        if flat.size == 0:
+            return []
+        # run boundaries = positions where the value changes
+        change = np.nonzero(np.diff(flat))[0] + 1
+        starts = np.concatenate([[0], change])
+        ends = np.concatenate([change, [flat.size]])
+        return [[int(flat[s]), int(e - s)] for s, e in zip(starts, ends)]
+
+    @staticmethod
     def class_summary(mask: np.ndarray) -> list:
         """Per-class pixel coverage of the prediction, sorted by area desc."""
         total = mask.size

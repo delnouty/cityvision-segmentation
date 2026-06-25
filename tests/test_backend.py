@@ -54,6 +54,14 @@ def test_class_summary_sorted_and_complete():
     assert {"background", "road", "car"} <= names
 
 
+def test_rle_encode_roundtrip():
+    mask = np.array([[1, 1, 1, 0], [0, 0, 2, 2]], dtype=np.uint8)
+    runs = Segmenter.rle_encode(mask)
+    assert sum(n for _, n in runs) == mask.size
+    flat = np.concatenate([np.full(n, c, dtype=np.uint8) for c, n in runs])
+    assert np.array_equal(flat.reshape(mask.shape), mask)
+
+
 def test_arch_from_filename():
     assert inference._arch_from_filename("resnet50_best.pth") == "ResNet50-UNet"
     assert inference._arch_from_filename("/x/y/unet_best.pth") == "UNet"
@@ -118,8 +126,40 @@ def _files(png_bytes):
     return {"file": ("sample.png", png_bytes, "image/png")}
 
 
-def test_predict_color_png(client, png_bytes):
-    r = client.post("/predict", params={"format": "color"}, files=_files(png_bytes))
+def test_predict_returns_json_mask(client, png_bytes):
+    r = client.post("/predict", files=_files(png_bytes))
+    assert r.status_code == 200
+    assert "application/json" in r.headers["content-type"]
+    body = r.json()
+    assert body["model"] == "DummyNet"
+    assert (body["width"], body["height"]) == (64, 32)  # original image size
+    assert body["classes"] == CLASS_NAMES
+    assert len(body["palette"]) == NUM_CLASSES
+    # mask is a HxW grid of class indices
+    mask = body["mask"]
+    assert len(mask) == 32 and len(mask[0]) == 64
+    flat = {v for row in mask for v in row}
+    assert flat.issubset(set(range(NUM_CLASSES)))
+    assert len(body["detected_classes"]) >= 1
+
+
+def test_predict_rle_encoding(client, png_bytes):
+    r = client.post("/predict", params={"encoding": "rle"}, files=_files(png_bytes))
+    assert r.status_code == 200
+    body = r.json()
+    assert body["encoding"] == "rle"
+    assert "mask" not in body
+    rle = body["mask_rle"]
+    assert rle["shape"] == [32, 64]
+    assert sum(n for _, n in rle["runs"]) == 32 * 64
+    flat = np.concatenate([np.full(n, c) for c, n in rle["runs"]])
+    assert set(np.unique(flat)).issubset(set(range(NUM_CLASSES)))
+
+
+def test_predict_image_color_png(client, png_bytes):
+    r = client.post(
+        "/predict/image", params={"format": "color"}, files=_files(png_bytes)
+    )
     assert r.status_code == 200
     assert r.headers["content-type"] == "image/png"
     img = Image.open(io.BytesIO(r.content))
@@ -127,31 +167,35 @@ def test_predict_color_png(client, png_bytes):
     assert img.size == (64, 32)  # original image size
 
 
-def test_predict_overlay_png(client, png_bytes):
+def test_predict_image_overlay_png(client, png_bytes):
     r = client.post(
-        "/predict", params={"format": "overlay", "alpha": 0.4}, files=_files(png_bytes)
+        "/predict/image",
+        params={"format": "overlay", "alpha": 0.4},
+        files=_files(png_bytes),
     )
     assert r.status_code == 200
     img = Image.open(io.BytesIO(r.content))
     assert img.size == (64, 32)
 
 
-def test_predict_raw_is_single_channel(client, png_bytes):
-    r = client.post("/predict", params={"format": "raw"}, files=_files(png_bytes))
+def test_predict_image_raw_is_single_channel(client, png_bytes):
+    r = client.post("/predict/image", params={"format": "raw"}, files=_files(png_bytes))
     assert r.status_code == 200
     img = Image.open(io.BytesIO(r.content))
     assert img.mode == "L"
     assert set(np.unique(np.array(img))).issubset(set(range(NUM_CLASSES)))
 
 
-def test_predict_default_format_is_color(client, png_bytes):
-    r = client.post("/predict", files=_files(png_bytes))
+def test_predict_image_default_format_is_color(client, png_bytes):
+    r = client.post("/predict/image", files=_files(png_bytes))
     assert r.status_code == 200
     assert Image.open(io.BytesIO(r.content)).mode == "RGB"
 
 
-def test_predict_invalid_format_rejected(client, png_bytes):
-    r = client.post("/predict", params={"format": "rainbow"}, files=_files(png_bytes))
+def test_predict_image_invalid_format_rejected(client, png_bytes):
+    r = client.post(
+        "/predict/image", params={"format": "rainbow"}, files=_files(png_bytes)
+    )
     assert r.status_code == 422  # fails the regex query validation
 
 
