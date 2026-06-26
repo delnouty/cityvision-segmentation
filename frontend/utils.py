@@ -9,21 +9,42 @@ Streamlit script makes them unit-testable.
 
 import os
 import sys
+import glob
 
 import numpy as np
 import requests
 from PIL import Image
 
-# --- make project modules importable ---
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-for _p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "src")):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
 
-from dataloader import get_cityscapes_pairs  # same dataloader as training
-
-# PALETTE/CLASS_NAMES are re-exported here for the Streamlit UI (utils.CLASS_NAMES).
-from backend.inference import PALETTE, CLASS_NAMES  # noqa: F401  same colours as model
+# Class names + palette (mirrors backend/inference.py). Defined locally so the
+# frontend has NO dependency on torch — it stays a lean image.
+CLASS_NAMES = [
+    "background",
+    "road",
+    "building",
+    "vegetation",
+    "sky",
+    "person",
+    "car",
+    "traffic_sign",
+    "bicycle",
+]
+NUM_CLASSES = 9
+PALETTE = np.array(
+    [
+        (0, 0, 0),  # background
+        (128, 64, 128),  # road
+        (70, 70, 70),  # building
+        (107, 142, 35),  # vegetation
+        (70, 130, 180),  # sky
+        (220, 20, 60),  # person
+        (0, 0, 142),  # car
+        (220, 220, 0),  # traffic_sign
+        (119, 11, 32),  # bicycle
+    ],
+    dtype=np.uint8,
+)
 
 # Raw Cityscapes labelId -> 9-class training scheme (mirrors the training scripts).
 TARGET_CLASSES = {7: 1, 11: 2, 21: 3, 23: 4, 24: 5, 26: 6, 20: 7, 33: 8}
@@ -35,7 +56,13 @@ MASK_ROOT = os.path.join(
     PROJECT_ROOT, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine"
 )
 
-DEFAULT_API = "http://localhost:8000"
+# Backend API base URL — overridable via env var (e.g. in Docker / Azure).
+DEFAULT_API = os.environ.get("CITYVISION_API", "http://localhost:8000")
+
+# Curated sample set committed to the repo (built by scripts/make_samples.py):
+# two image+mask pairs per city (from val, which has real masks), so the frontend
+# works without the full dataset and can show real image / real mask / prediction.
+SAMPLE_DIR = os.path.join(PROJECT_ROOT, "data", "samples")
 
 
 def image_id(img_path: str) -> str:
@@ -44,9 +71,38 @@ def image_id(img_path: str) -> str:
 
 
 def build_pairs(split: str) -> dict:
-    """{image_id: (img_path, mask_path)} for the split (same dataloader as training)."""
+    """{image_id: (img_path, mask_path)} for a full-dataset split.
+
+    Imports the training dataloader lazily (it pulls in torch) so that the
+    common path — bundled sample images — has no heavy dependency.
+    """
+    src_dir = os.path.join(PROJECT_ROOT, "src")
+    if src_dir not in sys.path:
+        sys.path.insert(0, src_dir)
+    from dataloader import get_cityscapes_pairs  # lazy: needs torch
+
     pairs = get_cityscapes_pairs(IMG_ROOT, MASK_ROOT, split=split)
     return {image_id(ip): (ip, mp) for ip, mp in pairs}
+
+
+def list_sample_images() -> dict:
+    """{image_id: (image_path, mask_path)} for the bundled sample set in data/samples/.
+
+    A small curated subset (two image+mask pairs per city) committed to the repo
+    so the frontend works without the full Cityscapes dataset and can show the
+    real image, the real mask, and the predicted mask.
+    """
+    out = {}
+    if not os.path.isdir(SAMPLE_DIR):
+        return out
+    pattern = os.path.join(SAMPLE_DIR, "*", "*_leftImg8bit.png")
+    for img_path in sorted(glob.glob(pattern)):
+        mask_path = img_path.replace("_leftImg8bit.png", "_gtFine_color.png")
+        out[image_id(img_path)] = (
+            img_path,
+            mask_path if os.path.exists(mask_path) else None,
+        )
+    return out
 
 
 def remap_labels(raw: np.ndarray) -> np.ndarray:
@@ -58,12 +114,18 @@ def remap_labels(raw: np.ndarray) -> np.ndarray:
 
 
 def colorize_gt(mask_path: str):
-    """Read a gtFine labelIds mask, remap to 9 classes, colourise.
-    Returns (PIL.Image, has_real_labels). The test split remaps to all-background."""
+    """Return (colour RGB mask, has_real_labels) for display.
+
+    Accepts either an already-colourised RGB mask (the bundled samples,
+    `*_gtFine_color.png`) or a raw labelIds mask (the dataset splits), which is
+    remapped to the 9-class palette. A test-split labelIds mask remaps to
+    all-background, so has_real_labels is False there."""
     raw = np.array(Image.open(mask_path))
+    if raw.ndim == 3:  # already a colour mask
+        rgb = raw[..., :3].astype(np.uint8)
+        return Image.fromarray(rgb, mode="RGB"), bool(rgb.any())
     remapped = remap_labels(raw)
-    has_real = bool(remapped.any())
-    return Image.fromarray(PALETTE[remapped], mode="RGB"), has_real
+    return Image.fromarray(PALETTE[remapped], mode="RGB"), bool(remapped.any())
 
 
 # --- API client ---

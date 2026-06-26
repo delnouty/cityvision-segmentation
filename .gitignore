@@ -29,7 +29,9 @@ mlruns/
 mlartifacts/
 
 # ─── Datasets (Cityscapes — large, do not commit) ───────────────────────────
-data/
+data/*
+# …but DO commit the small curated sample set used by the Streamlit frontend.
+!data/samples/
 
 # ─── Model checkpoints / weights ────────────────────────────────────────────
 *.pth

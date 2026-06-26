@@ -22,6 +22,18 @@ def test_image_id():
     assert utils.image_id(p) == "berlin_000000_000019"
 
 
+def test_list_sample_images():
+    samples = utils.list_sample_images()
+    if not samples:
+        pytest.skip("data/samples sample set not present")
+    some_id, (img_path, mask_path) = next(iter(samples.items()))
+    assert img_path.endswith("_leftImg8bit.png")
+    assert utils.image_id(img_path) == some_id
+    assert os.path.exists(img_path)
+    # bundled samples carry a real ground-truth mask
+    assert mask_path is not None and os.path.exists(mask_path)
+
+
 def test_remap_labels():
     raw = np.array([[7, 11, 0], [21, 99, 33]], dtype=np.int32)
     out = utils.remap_labels(raw)

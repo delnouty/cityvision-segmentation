@@ -1,0 +1,25 @@
+# Local test of the two-service setup: backend API + frontend UI.
+#
+#   docker compose up --build
+#   # then open http://localhost:8501
+#
+# The frontend reaches the backend over the compose network at http://backend:8000.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8000:8000"   # API + /docs on http://localhost:8000
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    environment:
+      - CITYVISION_API=http://backend:8000
+    ports:
+      - "8501:8501"   # UI on http://localhost:8501
+    depends_on:
+      - backend
