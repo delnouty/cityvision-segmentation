@@ -7,11 +7,10 @@ prediction API (backend/app.py).
 
 Image source
 ------------
-- **Sample images** (default): a small curated set committed to the repo at
-  `data/samples/` (two image+mask pairs per city, built by
-  `scripts/make_samples.py`). Works without the full Cityscapes dataset and
-  shows the real image, the real mask, and the predicted mask.
-- **Dataset split**: if the full dataset is present, browse val/train/test.
+Uses a small curated sample set committed to the repo at `data/samples/`
+(two image+mask pairs per city, built by `scripts/make_samples.py`), so it runs
+without the full Cityscapes dataset and shows the real image, the real mask, and
+the predicted mask.
 
 Run
 ---
@@ -36,7 +35,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 import utils
 
 # Streamlit-cached wrappers around the pure helpers.
-load_pairs = st.cache_data(show_spinner=False)(utils.build_pairs)
 load_samples = st.cache_data(show_spinner=False)(utils.list_sample_images)
 cached_health = st.cache_data(show_spinner=False, ttl=30)(utils.api_health)
 
@@ -64,57 +62,18 @@ with st.sidebar:
         st.info("Start it with:\n\n`uvicorn backend.app:app --port 8000`")
         st.stop()
 
-    # The "dataset split" mode needs the full Cityscapes dataset (and torch via
-    # the dataloader). It is unavailable in the lean/deployed frontend image, so
-    # only offer it when the dataset is actually present locally.
-    dataset_available = os.path.isdir(utils.IMG_ROOT)
-
-    split = None
-    if dataset_available:
-        source = st.radio(
-            "Image source",
-            ["Sample images (data/samples)", "Dataset split (full data)"],
-            index=0,
-            help="Sample images are bundled with the repo (2 per city). The "
-            "dataset split needs the full Cityscapes data locally.",
-        )
-        use_samples = source.startswith("Sample")
-        if not use_samples:
-            split = st.selectbox(
-                "Dataset split",
-                ["val", "test", "train"],
-                index=0,
-                help="val/train have real ground-truth masks; "
-                "the test split does not (Cityscapes withholds it).",
-            )
-    else:
-        use_samples = True
-        st.caption("Bundled sample images (full dataset not available here).")
-
     overlay = st.checkbox("Show prediction as overlay", value=False)
     alpha = st.slider("Overlay opacity", 0.0, 1.0, 0.5, 0.05, disabled=not overlay)
 
-# --- resolve the image (and optional ground-truth mask) for the selection ---
-if use_samples:
-    pairs = load_samples()
-    if not pairs:
-        st.warning(
-            "No sample images found in `data/samples/`.\n\n"
-            "Build them with: `python scripts/make_samples.py`"
-        )
-        st.stop()
-    label = f"Image ({len(pairs)} sample images, 2 per city)"
-else:
-    try:
-        pairs = load_pairs(split)
-    except Exception as e:
-        st.error(f"Dataset split unavailable here: {e}\n\nUse the sample images.")
-        st.stop()
-    if not pairs:
-        st.warning(f"No images found for split '{split}'.")
-        st.stop()
-    label = f"Image ID ({len(pairs)} available in '{split}')"
-
+# --- available sample images (bundled in data/samples/) ---
+pairs = load_samples()
+if not pairs:
+    st.warning(
+        "No sample images found in `data/samples/`.\n\n"
+        "Build them with: `python scripts/make_samples.py`"
+    )
+    st.stop()
+label = f"Image ({len(pairs)} sample images, 2 per city)"
 ids = sorted(pairs.keys())
 
 col_sel, col_btn = st.columns([4, 1])
