@@ -1,35 +1,31 @@
 """
-test_the_best.py
-================
+scripts/visualize_best.py
+=========================
 
-Qualitative test of the *best* trained model.
+Qualitative evaluation of the *best* trained model (NOT a pytest test — it was
+previously misnamed ``src/test_the_best.py``).
 
 What it does
 ------------
 1. Queries the MLflow backend (``sqlite:///mlflow.db``, experiment
    ``urban-segmentation``) for the run with the highest ``best_val_mIoU``
    whose checkpoint is available in ``backend/model/``.
-2. Rebuilds that architecture and loads its weights from the backend.
-3. Samples 4 random examples from the ``test`` split using the *same*
-   dataloader as training (``src/dataloader.py``) so the preprocessing
-   (resize + ImageNet normalization) is identical.
-4. Renders, for each example, three panels side by side:
-   original image | ground-truth mask | model prediction.
-   The figure is saved to ``test_the_best_predictions.png``.
+2. Rebuilds that architecture (via ``cityvision.models``) and loads its weights.
+3. Samples N random examples from a split using the *same* dataloader as
+   training (``src/dataloader.py``) so preprocessing is identical.
+4. Renders, per example: original image | ground-truth mask | prediction,
+   saved to ``results/best_prediction.png``.
 
 Note on the test split
 ----------------------
-Official Cityscapes withholds the test ground truth, so the test
-``*_labelIds.png`` files only contain {0, 1, 3}. After the training
-remapping these become all-"background", i.e. the middle "mask" panel is
-not a real annotation. Pass ``--split val`` to compare against real
-ground-truth masks instead.
+Cityscapes withholds the test ground truth (labelIds are only ignore-labels),
+so with ``--split test`` the middle panel is all-background. Use ``--split val``
+for real ground-truth masks.
 
 Usage
 -----
-    python src/test_the_best.py                 # 4 random test examples
-    python src/test_the_best.py --split val      # real ground-truth masks
-    python src/test_the_best.py --num 6 --seed 0
+    python scripts/visualize_best.py --split val
+    python scripts/visualize_best.py --split val --num 6 --seed 0
 """
 
 import os
@@ -41,59 +37,21 @@ import torch
 import matplotlib
 
 matplotlib.use("Agg")  # save to file without needing a display
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.patches as mpatches  # noqa: E402
 
-import mlflow
-from mlflow.tracking import MlflowClient
+import mlflow  # noqa: E402
+from mlflow.tracking import MlflowClient  # noqa: E402
 
-sys.path.insert(0, os.path.dirname(__file__))
-from dataloader import get_cityscapes_pairs, CityscapesDataset
+# Make the shared package and the training dataloader importable.
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+for _p in (PROJECT_ROOT, os.path.join(PROJECT_ROOT, "src")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
-# ============================================================
-# Constants — mirror the training scripts
-# ============================================================
-
-TARGET_CLASSES = {
-    7: 1,  # road
-    11: 2,  # building
-    21: 3,  # vegetation
-    23: 4,  # sky
-    24: 5,  # person
-    26: 6,  # car
-    20: 7,  # traffic_sign
-    33: 8,  # bicycle
-}
-
-CLASS_NAMES = [
-    "background",
-    "road",
-    "building",
-    "vegetation",
-    "sky",
-    "person",
-    "car",
-    "traffic_sign",
-    "bicycle",
-]
-
-NUM_CLASSES = 9
-
-# Cityscapes-style RGB palette, one colour per remapped class (0-8).
-PALETTE = np.array(
-    [
-        (0, 0, 0),  # background
-        (128, 64, 128),  # road
-        (70, 70, 70),  # building
-        (107, 142, 35),  # vegetation
-        (70, 130, 180),  # sky
-        (220, 20, 60),  # person
-        (0, 0, 142),  # car
-        (220, 220, 0),  # traffic_sign
-        (119, 11, 32),  # bicycle
-    ],
-    dtype=np.uint8,
-)
+from dataloader import get_cityscapes_pairs, CityscapesDataset  # noqa: E402
+from cityvision.constants import CLASS_NAMES, NUM_CLASSES, PALETTE  # noqa: E402
+from cityvision.models import build_model, remap_mask  # noqa: E402
 
 # ImageNet normalization used by the dataloader — needed to de-normalize
 # images back to a displayable RGB range.
@@ -112,19 +70,6 @@ CKPT_BY_ARCH = {
 }
 
 
-# ============================================================
-# Helpers
-# ============================================================
-
-
-def remap_mask(mask: torch.Tensor) -> torch.Tensor:
-    """Map raw Cityscapes labelIds to the 9-class training scheme."""
-    new_mask = torch.zeros_like(mask)
-    for src, dst in TARGET_CLASSES.items():
-        new_mask[mask == src] = dst
-    return new_mask
-
-
 def colorize(label: np.ndarray) -> np.ndarray:
     """(H, W) class indices -> (H, W, 3) RGB image using PALETTE."""
     return PALETTE[label]
@@ -135,31 +80,6 @@ def denormalize(img_tensor: torch.Tensor) -> np.ndarray:
     img = img_tensor.cpu().numpy().transpose(1, 2, 0)
     img = img * IMAGENET_STD + IMAGENET_MEAN
     return (np.clip(img, 0, 1) * 255).astype(np.uint8)
-
-
-def build_model(arch: str, num_classes: int) -> torch.nn.Module:
-    """Instantiate the model class matching the logged architecture name."""
-    if arch == "UNet":
-        from training import UNet
-
-        return UNet(num_classes=num_classes)
-    if arch == "ResNet34-UNet":
-        from training_resnet import ResNetUNet
-
-        return ResNetUNet(num_classes=num_classes, pretrained=False)
-    if arch == "ResNet50-UNet":
-        from training_resnet50 import ResNet50UNet
-
-        return ResNet50UNet(num_classes=num_classes, pretrained=False)
-    if arch == "VGG16-UNet":
-        from training_vgg import VGGUNet
-
-        return VGGUNet(num_classes=num_classes, pretrained=False)
-    if arch == "SegNet":
-        from training_segnet import SegNet
-
-        return SegNet(num_classes=num_classes)
-    raise ValueError(f"Unknown architecture: {arch!r}")
 
 
 def select_best_model(project_root: str):
@@ -194,23 +114,18 @@ def select_best_model(project_root: str):
     )
 
 
-# ============================================================
-# Main
-# ============================================================
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Visualize the best model on random examples."
     )
     parser.add_argument(
         "--split",
-        default="test",
+        default="val",
         choices=["test", "val", "train"],
-        help="Dataset split to sample from (default: test).",
+        help="Dataset split to sample from (default: val — has real masks).",
     )
     parser.add_argument(
-        "--num", type=int, default=2, help="Number of random examples (default: 2)."
+        "--num", type=int, default=4, help="Number of random examples (default: 4)."
     )
     parser.add_argument(
         "--seed",
@@ -221,36 +136,35 @@ def main():
     parser.add_argument(
         "--output",
         default=None,
-        help="Output image path (default: <project_root>/test_the_best_predictions.png).",
+        help="Output image path (default: <project_root>/results/best_prediction.png).",
     )
     args = parser.parse_args()
 
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     img_root = os.path.join(
-        project_root,
+        PROJECT_ROOT,
         "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit",
     )
     mask_root = os.path.join(
-        project_root, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine"
+        PROJECT_ROOT, "data/cityscapes/P8_Cityscapes_gtFine_trainvaltest/gtFine"
     )
     output_path = args.output or os.path.join(
-        project_root, "test_the_best_predictions.png"
+        PROJECT_ROOT, "results", "best_prediction.png"
     )
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Device: {device}")
 
     # --- 1. pick the best model from the MLflow backend ---
-    arch, ckpt_path, miou = select_best_model(project_root)
+    arch, ckpt_path, miou = select_best_model(PROJECT_ROOT)
     print(f"Best model: {arch}  (best_val_mIoU={miou:.4f})")
     print(f"Checkpoint: {ckpt_path}")
 
     model = build_model(arch, NUM_CLASSES).to(device)
-    state_dict = torch.load(ckpt_path, map_location=device)
+    state_dict = torch.load(ckpt_path, map_location=device, weights_only=True)
     model.load_state_dict(state_dict)
     model.eval()
 
-    # --- 2. build the test dataset with the SAME dataloader as training ---
+    # --- 2. build the dataset with the SAME dataloader as training ---
     pairs = get_cityscapes_pairs(img_root, mask_root, split=args.split)
     if not pairs:
         raise RuntimeError(f"No image/mask pairs found for split={args.split!r}.")

@@ -24,18 +24,87 @@ Run
 """
 
 import io
+import os
+import json
+import time
+import logging
 
-from fastapi import FastAPI, File, UploadFile, Query, HTTPException
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi import FastAPI, File, UploadFile, Query, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse, HTMLResponse, JSONResponse
 from PIL import Image, UnidentifiedImageError
 
 from backend.inference import Segmenter, CLASS_NAMES, PALETTE, NUM_CLASSES
+
+# Reject uploads larger than this (guards against OOM from huge images).
+MAX_UPLOAD_MB = float(os.environ.get("CITYVISION_MAX_UPLOAD_MB", "10"))
+MAX_UPLOAD_BYTES = int(MAX_UPLOAD_MB * 1024 * 1024)
+
+
+class _JsonFormatter(logging.Formatter):
+    """Emit one JSON object per log line (structured logs)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "ts": round(record.created, 3),
+            "level": record.levelname,
+            "event": record.getMessage(),
+        }
+        data = getattr(record, "data", None)
+        if isinstance(data, dict):
+            payload.update(data)
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(payload, default=str)
+
+
+def _make_logger() -> logging.Logger:
+    handler = logging.StreamHandler()
+    handler.setFormatter(_JsonFormatter())
+    lg = logging.getLogger("cityvision")
+    lg.setLevel(logging.INFO)
+    lg.handlers = [handler]
+    lg.propagate = False
+    return lg
+
+
+log = _make_logger()
 
 app = FastAPI(
     title="CityVision Segmentation API",
     description="Upload an urban scene image and receive the predicted segmentation mask.",
     version="1.0.0",
 )
+
+
+@app.middleware("http")
+async def _limit_and_log(request: Request, call_next):
+    # Fast-reject oversized uploads before buffering the whole body.
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > MAX_UPLOAD_BYTES + 4096:
+        log.warning(
+            "upload_rejected",
+            extra={"data": {"path": request.url.path, "content_length": int(cl)}},
+        )
+        return JSONResponse(
+            status_code=413,
+            content={"detail": f"Payload too large (limit {MAX_UPLOAD_MB:g} MB)."},
+        )
+    start = time.perf_counter()
+    response = await call_next(request)
+    log.info(
+        "request",
+        extra={
+            "data": {
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "latency_ms": round((time.perf_counter() - start) * 1000, 1),
+            }
+        },
+    )
+    return response
+
 
 # Load the model once at startup (heavy — do it lazily-once, not per request).
 segmenter: Segmenter | None = None
@@ -46,10 +115,28 @@ def _load_model() -> None:
     global segmenter
     segmenter = Segmenter()
     info = segmenter.info()
-    print(
-        f"[CityVision] Loaded {info['architecture']} "
-        f"({info['checkpoint']}) on {info['device']}."
+    log.info(
+        "model_loaded",
+        extra={
+            "data": {
+                "architecture": info["architecture"],
+                "checkpoint": info["checkpoint"],
+                "device": info["device"],
+                "max_upload_mb": MAX_UPLOAD_MB,
+            }
+        },
     )
+
+
+async def _read_upload(file: UploadFile) -> bytes:
+    """Read the upload, enforcing the size cap (defense-in-depth vs the
+    Content-Length check in the middleware, e.g. for chunked requests)."""
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413, detail=f"Payload too large (limit {MAX_UPLOAD_MB:g} MB)."
+        )
+    return data
 
 
 def _read_image(data: bytes) -> Image.Image:
@@ -93,28 +180,34 @@ async def predict(
     if segmenter is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet.")
 
-    image = _read_image(await file.read())
-    mask = segmenter.predict(image)
-    height, width = mask.shape
-    payload = {
-        "model": segmenter.arch,
-        "width": int(width),
-        "height": int(height),
-        "num_classes": NUM_CLASSES,
-        "classes": CLASS_NAMES,
-        "palette": [[int(c) for c in PALETTE[i]] for i in range(NUM_CLASSES)],
-        "encoding": encoding,
-        "detected_classes": segmenter.class_summary(mask),
-    }
-    if encoding == "rle":
-        payload["mask_rle"] = {
-            "shape": [int(height), int(width)],
-            "order": "row-major",
-            "runs": segmenter.rle_encode(mask),
+    image = _read_image(await _read_upload(file))
+
+    def _compute() -> dict:
+        # CPU-bound (model inference + mask encoding) — runs in a worker thread
+        # so the async event loop stays free to serve other requests.
+        mask = segmenter.predict(image)
+        height, width = mask.shape
+        payload = {
+            "model": segmenter.arch,
+            "width": int(width),
+            "height": int(height),
+            "num_classes": NUM_CLASSES,
+            "classes": CLASS_NAMES,
+            "palette": [[int(c) for c in PALETTE[i]] for i in range(NUM_CLASSES)],
+            "encoding": encoding,
+            "detected_classes": segmenter.class_summary(mask),
         }
-    else:
-        payload["mask"] = mask.tolist()
-    return payload
+        if encoding == "rle":
+            payload["mask_rle"] = {
+                "shape": [int(height), int(width)],
+                "order": "row-major",
+                "runs": segmenter.rle_encode(mask),
+            }
+        else:
+            payload["mask"] = mask.tolist()
+        return payload
+
+    return await run_in_threadpool(_compute)
 
 
 @app.post("/predict/image")
@@ -127,16 +220,18 @@ async def predict_image(
     if segmenter is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet.")
 
-    image = _read_image(await file.read())
-    mask = segmenter.predict(image)
+    image = _read_image(await _read_upload(file))
 
-    if format == "color":
-        result = segmenter.colorize(mask)
-    elif format == "overlay":
-        result = segmenter.overlay(image, mask, alpha=alpha)
-    else:  # raw: single-channel class-index PNG (0..8)
-        result = Image.fromarray(mask, mode="L")
+    def _render() -> Image.Image:
+        # CPU-bound (inference + rendering) — offloaded to a worker thread.
+        mask = segmenter.predict(image)
+        if format == "color":
+            return segmenter.colorize(mask)
+        if format == "overlay":
+            return segmenter.overlay(image, mask, alpha=alpha)
+        return Image.fromarray(mask, mode="L")  # raw class-index PNG (0..8)
 
+    result = await run_in_threadpool(_render)
     return _png_response(result)
 
 
@@ -146,12 +241,17 @@ async def predict_classes(file: UploadFile = File(...)) -> dict:
     if segmenter is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet.")
 
-    image = _read_image(await file.read())
-    mask = segmenter.predict(image)
+    image = _read_image(await _read_upload(file))
+
+    def _compute() -> list:
+        # CPU-bound (inference + summary) — offloaded to a worker thread.
+        return segmenter.class_summary(segmenter.predict(image))
+
+    detected = await run_in_threadpool(_compute)
     return {
         "model": segmenter.arch,
         "image_size": {"width": image.size[0], "height": image.size[1]},
-        "detected_classes": segmenter.class_summary(mask),
+        "detected_classes": detected,
     }
 
 

@@ -49,3 +49,14 @@ data/*
 # ─── OS cruft ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+~BROMIUM/
+**/~BROMIUM/
+
+# ─── Generated docs (LaTeX build output — regenerate with pdflatex) ──────────
+doc/*.pdf
+doc/*.aux
+doc/*.out
+doc/*.toc
+
+# ─── Generated visualizations / outputs ─────────────────────────────────────
+results/

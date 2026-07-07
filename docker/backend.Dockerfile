@@ -11,15 +11,15 @@ RUN pip install --no-cache-dir \
     --extra-index-url https://pypi.org/simple \
     torch==2.12.0 torchvision==0.27.0
 
-# Runtime deps. mlflow + tqdm are needed because the model classes live in the
-# training modules (src/training_*.py), which import them at module load.
+# Runtime deps. The model classes now live in the shared `cityvision` package
+# (torch/torchvision only), so the API no longer pulls in mlflow/tqdm.
 RUN pip install --no-cache-dir \
     fastapi==0.136.3 uvicorn==0.49.0 python-multipart==0.0.32 \
-    numpy==2.2.6 pillow==12.2.0 tqdm==4.68.2 mlflow==2.22.5
+    numpy==2.2.6 pillow==12.2.0
 
-# Code + model classes + baked-in weights (backend/model/*.pth).
+# Shared package (constants + model architectures), API code, baked-in weights.
+COPY cityvision/ cityvision/
 COPY backend/ backend/
-COPY src/ src/
 
 # Pick the served model explicitly (no mlflow.db in the image to fall back on).
 ENV CITYVISION_ARCH=ResNet50-UNet

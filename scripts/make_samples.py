@@ -21,6 +21,7 @@ Run from the project root:
 """
 
 import os
+import sys
 import shutil
 from glob import glob
 
@@ -28,6 +29,11 @@ import numpy as np
 from PIL import Image
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from cityvision.constants import PALETTE, remap_labels  # noqa: E402
+
 SPLIT = "val"  # has real ground-truth masks
 IMG_SRC = os.path.join(
     PROJECT_ROOT,
@@ -44,23 +50,6 @@ DEST = os.path.join(PROJECT_ROOT, "data", "samples")
 PER_CITY = 2
 SCALE = 0.5  # downscale factor (2048x1024 -> 1024x512)
 
-# 9-class remap + palette (mirrors the training scripts / backend.inference).
-TARGET_CLASSES = {7: 1, 11: 2, 21: 3, 23: 4, 24: 5, 26: 6, 20: 7, 33: 8}
-PALETTE = np.array(
-    [
-        (0, 0, 0),  # background
-        (128, 64, 128),  # road
-        (70, 70, 70),  # building
-        (107, 142, 35),  # vegetation
-        (70, 130, 180),  # sky
-        (220, 20, 60),  # person
-        (0, 0, 142),  # car
-        (220, 220, 0),  # traffic_sign
-        (119, 11, 32),  # bicycle
-    ],
-    dtype=np.uint8,
-)
-
 
 def _mask_for(img_path: str) -> str:
     city = os.path.basename(os.path.dirname(img_path))
@@ -69,10 +58,7 @@ def _mask_for(img_path: str) -> str:
 
 
 def _colorize(label_ids: np.ndarray) -> Image.Image:
-    remapped = np.zeros_like(label_ids, dtype=np.uint8)
-    for src, dst in TARGET_CLASSES.items():
-        remapped[label_ids == src] = dst
-    return Image.fromarray(PALETTE[remapped], mode="RGB")
+    return Image.fromarray(PALETTE[remap_labels(label_ids)], mode="RGB")
 
 
 def main() -> None:

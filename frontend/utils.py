@@ -16,38 +16,18 @@ import requests
 from PIL import Image
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-# Class names + palette (mirrors backend/inference.py). Defined locally so the
-# frontend has NO dependency on torch — it stays a lean image.
-CLASS_NAMES = [
-    "background",
-    "road",
-    "building",
-    "vegetation",
-    "sky",
-    "person",
-    "car",
-    "traffic_sign",
-    "bicycle",
-]
-NUM_CLASSES = 9
-PALETTE = np.array(
-    [
-        (0, 0, 0),  # background
-        (128, 64, 128),  # road
-        (70, 70, 70),  # building
-        (107, 142, 35),  # vegetation
-        (70, 130, 180),  # sky
-        (220, 20, 60),  # person
-        (0, 0, 142),  # car
-        (220, 220, 0),  # traffic_sign
-        (119, 11, 32),  # bicycle
-    ],
-    dtype=np.uint8,
+# Classes / palette from the shared package. cityvision.constants is torch-free,
+# so the frontend stays a lean, torch-less image.
+from cityvision.constants import (  # noqa: E402,F401 (re-exported for the UI)
+    CLASS_NAMES,
+    NUM_CLASSES,
+    PALETTE,
+    TARGET_CLASSES,
+    remap_labels,
 )
-
-# Raw Cityscapes labelId -> 9-class training scheme (mirrors the training scripts).
-TARGET_CLASSES = {7: 1, 11: 2, 21: 3, 23: 4, 24: 5, 26: 6, 20: 7, 33: 8}
 
 IMG_ROOT = os.path.join(
     PROJECT_ROOT, "data/cityscapes/P8_Cityscapes_leftImg8bit_trainvaltest/leftImg8bit"
@@ -103,14 +83,6 @@ def list_sample_images() -> dict:
             mask_path if os.path.exists(mask_path) else None,
         )
     return out
-
-
-def remap_labels(raw: np.ndarray) -> np.ndarray:
-    """Map raw Cityscapes labelIds to the 9-class scheme (uint8)."""
-    remapped = np.zeros_like(raw, dtype=np.uint8)
-    for src, dst in TARGET_CLASSES.items():
-        remapped[raw == src] = dst
-    return remapped
 
 
 def colorize_gt(mask_path: str):

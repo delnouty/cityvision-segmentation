@@ -6,7 +6,8 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     streamlit==1.58.0 requests==2.34.2 numpy==2.2.6 pillow==12.2.0
 
-# UI code + the committed sample set (data/samples/).
+# Shared package (torch-free constants), UI code, and the committed sample set.
+COPY cityvision/ cityvision/
 COPY frontend/ frontend/
 COPY data/samples/ data/samples/
 

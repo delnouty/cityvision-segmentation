@@ -199,6 +199,14 @@ def test_predict_image_invalid_format_rejected(client, png_bytes):
     assert r.status_code == 422  # fails the regex query validation
 
 
+def test_upload_size_limit_returns_413(client, png_bytes, monkeypatch):
+    import backend.app as appmod
+
+    monkeypatch.setattr(appmod, "MAX_UPLOAD_BYTES", 5)  # tiny cap
+    r = client.post("/predict", files=_files(png_bytes))
+    assert r.status_code == 413
+
+
 def test_predict_invalid_file_returns_400(client):
     r = client.post(
         "/predict", files={"file": ("x.txt", b"not an image", "text/plain")}

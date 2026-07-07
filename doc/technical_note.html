@@ -191,15 +191,21 @@
 
   <h2>8. Repository layout</h2>
   <pre><code>CityVision/
-├── src/                 # training scripts, dataloader, test_the_best.py
-├── segmentation/        # reusable training package
+├── cityvision/          # shared package: constants.py + models.py (single source of truth)
+├── src/                 # training scripts + dataloader
 ├── backend/
 │   ├── app.py           # FastAPI app + endpoints + upload UI
 │   ├── inference.py     # model selection / loading / prediction
 │   └── model/           # trained checkpoints (*.pth)
 ├── frontend/
-│   └── streamlit_app.py # Streamlit UI consuming the API
-├── notebooks/           # training_comparison.ipynb
+│   ├── streamlit_app.py # Streamlit UI consuming the API
+│   └── utils.py         # helpers (unit-tested)
+├── scripts/
+│   ├── make_samples.py  # build the committed data/samples set
+│   └── visualize_best.py# qualitative eval of the best model
+├── tests/               # pytest suite (backend + frontend)
+├── docker/              # backend/frontend Dockerfiles (+ docker-compose.yml)
+├── notebooks/           # training_comparison.ipynb, training_augmented.ipynb
 ├── doc/                 # this technical note
 ├── mlflow.db            # MLflow tracking store
 └── requirements.txt</code></pre>
