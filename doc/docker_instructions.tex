@@ -1,0 +1,132 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,urlcolor=blue,linkcolor=black]{hyperref}
+\usepackage{parskip}
+
+% ---- Shell listing style ----
+\definecolor{shellbg}{RGB}{245,247,250}
+\definecolor{shellrule}{RGB}{220,225,232}
+\lstdefinestyle{shell}{
+  backgroundcolor=\color{shellbg},
+  basicstyle=\ttfamily\small,
+  frame=single,
+  rulecolor=\color{shellrule},
+  framesep=6pt,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+}
+\lstset{style=shell}
+
+\title{\textbf{CityVision --- Running the App with Docker}}
+\author{Urban Scene Semantic Segmentation}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent
+The application runs as \textbf{two containers}: a \textbf{backend} (FastAPI
+prediction API) and a \textbf{frontend} (Streamlit UI that consumes the API).
+Both are started together with Docker Compose.
+
+\section*{Prerequisites}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Docker Desktop} installed and \emph{running} (the whale icon in
+        the system tray is steady; the app shows ``Engine running'').
+  \item A terminal opened at the project root:\\
+        \texttt{C:\textbackslash Users\textbackslash DFILATOVA\textbackslash Desktop\textbackslash CityVision}
+\end{itemize}
+
+\noindent Check that Docker is running:
+\begin{lstlisting}
+docker version
+\end{lstlisting}
+If a \texttt{Server:} section is printed, the engine is up. If you only see the
+\texttt{Client:} block plus an error, start Docker Desktop first.
+
+\section*{Step 1 --- Start the containers}
+From the project root:
+\begin{lstlisting}
+docker compose up -d
+\end{lstlisting}
+\begin{itemize}[leftmargin=1.5em]
+  \item \texttt{-d} runs them in the background (detached).
+  \item The \emph{first} run builds the images and can take a few minutes
+        (it downloads PyTorch). Later runs are fast.
+  \item If you changed the code, rebuild first:
+        \texttt{docker compose up -{}-build -d}
+\end{itemize}
+
+\section*{Step 2 --- Check they are running}
+\begin{lstlisting}
+docker compose ps
+\end{lstlisting}
+You should see \textbf{two} containers, both \texttt{running}:
+\begin{lstlisting}
+cityvision-backend-1    running   0.0.0.0:8000->8000/tcp
+cityvision-frontend-1   running   0.0.0.0:8501->8501/tcp
+\end{lstlisting}
+
+\section*{Step 3 --- Open the app}
+\begin{itemize}[leftmargin=1.5em]
+  \item \textbf{Application (frontend):} \url{http://localhost:8501}
+  \item \textbf{API documentation (backend):} \url{http://localhost:8000/docs}
+\end{itemize}
+On the very first load, wait $\sim$10 seconds for the backend to load the model,
+then refresh if you see a connection error.
+
+\section*{Step 4 --- Use the app}
+\begin{enumerate}[leftmargin=1.5em]
+  \item In the sidebar, select an \textbf{image} from the dropdown
+        (e.g.\ \texttt{frankfurt\_000000\_000294}).
+  \item Click \textbf{Predict mask}.
+  \item The three panels appear: \textbf{real image}, \textbf{real mask}, and
+        \textbf{predicted mask}, plus the detected-class breakdown.
+\end{enumerate}
+
+\section*{Step 5 --- Stop the containers}
+\begin{lstlisting}
+docker compose down
+\end{lstlisting}
+This stops and removes both containers. The built images stay cached, so the
+next start is quick.
+
+\section*{Quick reference}
+\begin{center}
+\begin{tabular}{ll}
+\textbf{Goal} & \textbf{Command} \\[2pt]
+Start (images already built) & \texttt{docker compose up -d} \\
+Start after code changes      & \texttt{docker compose up -{}-build -d} \\
+Check status                  & \texttt{docker compose ps} \\
+View logs                     & \texttt{docker compose logs -f} \\
+Stop                          & \texttt{docker compose down} \\
+\end{tabular}
+\end{center}
+
+\section*{Troubleshooting}
+\begin{description}[leftmargin=0em,style=nextline]
+  \item[\texttt{error during connect \dots dockerDesktopLinuxEngine}]
+        Docker Desktop's engine is not running. Open Docker Desktop and wait for
+        ``Engine running'', then retry.
+  \item[\texttt{az} / other command ``not recognized'']
+        Not related to running the app; only relevant for cloud deployment.
+  \item[Frontend shows ``API not reachable'']
+        The backend is still starting (model load). Wait a few seconds and
+        refresh. Confirm with \texttt{docker compose ps} that
+        \texttt{cityvision-backend-1} is \texttt{running}.
+  \item[Port already in use]
+        Another process holds port 8501 or 8000. Stop it, or change the port
+        mapping in \texttt{docker-compose.yml}.
+\end{description}
+
+\end{document}

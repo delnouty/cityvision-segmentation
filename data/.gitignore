@@ -1,0 +1,6 @@
+# Ignore everything in data/ (the full Cityscapes dataset is large)…
+*
+!.gitignore
+# …except the small curated sample set used by the Streamlit frontend.
+!samples/
+!samples/**

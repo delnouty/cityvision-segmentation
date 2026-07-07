@@ -29,7 +29,9 @@ mlruns/
 mlartifacts/
 
 # ─── Datasets (Cityscapes — large, do not commit) ───────────────────────────
-data/
+data/*
+# …but DO commit the small curated sample set used by the Streamlit frontend.
+!data/samples/
 
 # ─── Model checkpoints / weights ────────────────────────────────────────────
 *.pth
@@ -47,3 +49,14 @@ data/
 # ─── OS cruft ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
+~BROMIUM/
+**/~BROMIUM/
+
+# ─── Generated docs (LaTeX build output — regenerate with pdflatex) ──────────
+doc/*.pdf
+doc/*.aux
+doc/*.out
+doc/*.toc
+
+# ─── Generated visualizations / outputs ─────────────────────────────────────
+results/

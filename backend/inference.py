@@ -19,44 +19,18 @@ import torch
 import torch.nn.functional as F
 from PIL import Image
 
-# Make the src/ model classes importable.
+# Make the shared cityvision package importable.
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-_SRC_DIR = os.path.join(_PROJECT_ROOT, "src")
-if _SRC_DIR not in sys.path:
-    sys.path.insert(0, _SRC_DIR)
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+# Single source of truth for classes/palette and model architectures.
+from cityvision.constants import CLASS_NAMES, NUM_CLASSES, PALETTE  # noqa: E402
+from cityvision.models import build_model  # noqa: E402,F401 (re-exported)
 
 # ============================================================
-# Constants — mirror the training scripts / dataloader
+# Constants
 # ============================================================
-
-CLASS_NAMES = [
-    "background",
-    "road",
-    "building",
-    "vegetation",
-    "sky",
-    "person",
-    "car",
-    "traffic_sign",
-    "bicycle",
-]
-NUM_CLASSES = 9
-
-# Cityscapes-style RGB palette, one colour per class index (0-8).
-PALETTE = np.array(
-    [
-        (0, 0, 0),  # background
-        (128, 64, 128),  # road
-        (70, 70, 70),  # building
-        (107, 142, 35),  # vegetation
-        (70, 130, 180),  # sky
-        (220, 20, 60),  # person
-        (0, 0, 142),  # car
-        (220, 220, 0),  # traffic_sign
-        (119, 11, 32),  # bicycle
-    ],
-    dtype=np.uint8,
-)
 
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
@@ -79,33 +53,8 @@ _ARCH_PRIORITY = ["ResNet50-UNet", "ResNet34-UNet", "VGG16-UNet", "UNet", "SegNe
 
 
 # ============================================================
-# Model construction & checkpoint selection
+# Checkpoint selection
 # ============================================================
-
-
-def build_model(arch: str, num_classes: int = NUM_CLASSES) -> torch.nn.Module:
-    """Instantiate the model class matching the logged architecture name."""
-    if arch == "UNet":
-        from training import UNet
-
-        return UNet(num_classes=num_classes)
-    if arch == "ResNet34-UNet":
-        from training_resnet import ResNetUNet
-
-        return ResNetUNet(num_classes=num_classes, pretrained=False)
-    if arch == "ResNet50-UNet":
-        from training_resnet50 import ResNet50UNet
-
-        return ResNet50UNet(num_classes=num_classes, pretrained=False)
-    if arch == "VGG16-UNet":
-        from training_vgg import VGGUNet
-
-        return VGGUNet(num_classes=num_classes, pretrained=False)
-    if arch == "SegNet":
-        from training_segnet import SegNet
-
-        return SegNet(num_classes=num_classes)
-    raise ValueError(f"Unknown architecture: {arch!r}")
 
 
 def _arch_from_filename(fname: str) -> Optional[str]:

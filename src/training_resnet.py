@@ -7,135 +7,13 @@ from tqdm import tqdm
 import numpy as np
 import mlflow
 import mlflow.pytorch
-import torchvision.models as tv_models
 
 sys.path.insert(0, os.path.dirname(__file__))
 from dataloader import create_dataloaders
 
-# ============================================================
-# 1. REMAP TO 8 OBJECTS  (identical to other training scripts)
-# ============================================================
-
-TARGET_CLASSES = {
-    7: 1,  # road
-    11: 2,  # building
-    21: 3,  # vegetation
-    23: 4,  # sky
-    24: 5,  # person
-    26: 6,  # car
-    20: 7,  # traffic_sign
-    33: 8,  # bicycle
-}
-
-CLASS_NAMES = [
-    "background",
-    "road",
-    "building",
-    "vegetation",
-    "sky",
-    "person",
-    "car",
-    "traffic_sign",
-    "bicycle",
-]
-
-NUM_CLASSES = 9
-
-
-def remap_mask(mask):
-    new_mask = torch.zeros_like(mask)
-    for src, dst in TARGET_CLASSES.items():
-        new_mask[mask == src] = dst
-    return new_mask
-
-
-# ============================================================
-# 2. RESNET34 ENCODER + U-NET DECODER
-#
-#  ResNet34 feature map sizes (input 256x512):
-#    stem  (conv1+bn+relu): 64ch,  H/2  — captured before maxpool
-#    layer1:                64ch,  H/4
-#    layer2:               128ch,  H/8
-#    layer3:               256ch,  H/16
-#    layer4:               512ch,  H/32
-#
-#  Decoder mirrors with skip connections at each stride level,
-#  then a final 2× upsample restores original resolution.
-# ============================================================
-
-
-class DoubleConv(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, 3, padding=1),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-
-class ResNetUNet(nn.Module):
-    def __init__(self, num_classes=NUM_CLASSES, pretrained=True):
-        super().__init__()
-
-        weights = tv_models.ResNet34_Weights.IMAGENET1K_V1 if pretrained else None
-        backbone = tv_models.resnet34(weights=weights)
-
-        # Encoder — split into stages to capture skip features
-        self.stem = nn.Sequential(
-            backbone.conv1, backbone.bn1, backbone.relu
-        )  # 64ch, H/2
-        self.pool = backbone.maxpool  # H/4
-        self.layer1 = backbone.layer1  # 64ch,  H/4
-        self.layer2 = backbone.layer2  # 128ch, H/8
-        self.layer3 = backbone.layer3  # 256ch, H/16
-        self.layer4 = backbone.layer4  # 512ch, H/32
-
-        # Decoder
-        self.up4 = nn.ConvTranspose2d(512, 256, 2, stride=2)
-        self.dec4 = DoubleConv(256 + 256, 256)  # cat layer3
-
-        self.up3 = nn.ConvTranspose2d(256, 128, 2, stride=2)
-        self.dec3 = DoubleConv(128 + 128, 128)  # cat layer2
-
-        self.up2 = nn.ConvTranspose2d(128, 64, 2, stride=2)
-        self.dec2 = DoubleConv(64 + 64, 64)  # cat layer1
-
-        self.up1 = nn.ConvTranspose2d(64, 64, 2, stride=2)
-        self.dec1 = DoubleConv(64 + 64, 32)  # cat stem (H/2)
-
-        # Final upsample H/2 → H
-        self.up0 = nn.ConvTranspose2d(32, 32, 2, stride=2)
-        self.out = nn.Conv2d(32, num_classes, 1)
-
-    def forward(self, x):
-        s0 = self.stem(x)  # 64ch, H/2
-        s1 = self.layer1(self.pool(s0))  # 64ch, H/4
-        s2 = self.layer2(s1)  # 128ch, H/8
-        s3 = self.layer3(s2)  # 256ch, H/16
-        s4 = self.layer4(s3)  # 512ch, H/32
-
-        x = self.up4(s4)
-        x = self.dec4(torch.cat([x, s3], dim=1))
-
-        x = self.up3(x)
-        x = self.dec3(torch.cat([x, s2], dim=1))
-
-        x = self.up2(x)
-        x = self.dec2(torch.cat([x, s1], dim=1))
-
-        x = self.up1(x)
-        x = self.dec1(torch.cat([x, s0], dim=1))
-
-        x = self.up0(x)
-        return self.out(x)
-
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from cityvision.constants import CLASS_NAMES, NUM_CLASSES  # noqa: E402,F401
+from cityvision.models import ResNetUNet, remap_mask  # noqa: E402
 
 # ============================================================
 # 3. LOSS  —  CE + Dice

@@ -5,12 +5,12 @@ frontend/streamlit_app.py
 Streamlit UI for presenting CityVision segmentation results by consuming the
 prediction API (backend/app.py).
 
-Features
---------
-- Lists the available image IDs for a chosen dataset split.
-- Sends the selected image to the API to get the predicted mask.
-- Shows, side by side: the real image, the real (ground-truth) mask, and the
-  predicted mask.
+Image source
+------------
+Uses a small curated sample set committed to the repo at `data/samples/`
+(two image+mask pairs per city, built by `scripts/make_samples.py`), so it runs
+without the full Cityscapes dataset and shows the real image, the real mask, and
+the predicted mask.
 
 Run
 ---
@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import utils
 
 # Streamlit-cached wrappers around the pure helpers.
-load_pairs = st.cache_data(show_spinner=False)(utils.build_pairs)
+load_samples = st.cache_data(show_spinner=False)(utils.list_sample_images)
 cached_health = st.cache_data(show_spinner=False, ttl=30)(utils.api_health)
 
 
@@ -62,25 +62,23 @@ with st.sidebar:
         st.info("Start it with:\n\n`uvicorn backend.app:app --port 8000`")
         st.stop()
 
-    split = st.selectbox(
-        "Dataset split",
-        ["val", "test", "train"],
-        index=0,
-        help="val/train have real ground-truth masks; "
-        "the test split does not (Cityscapes withholds it).",
-    )
     overlay = st.checkbox("Show prediction as overlay", value=False)
     alpha = st.slider("Overlay opacity", 0.0, 1.0, 0.5, 0.05, disabled=not overlay)
 
-pairs = load_pairs(split)
+# --- available sample images (bundled in data/samples/) ---
+pairs = load_samples()
 if not pairs:
-    st.warning(f"No images found for split '{split}'.")
+    st.warning(
+        "No sample images found in `data/samples/`.\n\n"
+        "Build them with: `python scripts/make_samples.py`"
+    )
     st.stop()
-
+label = f"Image ({len(pairs)} sample images, 2 per city)"
 ids = sorted(pairs.keys())
+
 col_sel, col_btn = st.columns([4, 1])
 with col_sel:
-    selected = st.selectbox(f"Image ID ({len(ids)} available in '{split}')", ids)
+    selected = st.selectbox(label, ids)
 with col_btn:
     st.write("")
     st.write("")
@@ -88,20 +86,25 @@ with col_btn:
 
 img_path, mask_path = pairs[selected]
 
-c1, c2, c3 = st.columns(3)
+# --- panels: real image | real mask | predicted mask ---
+has_gt = mask_path is not None
+columns = st.columns(3 if has_gt else 2)
 
-with c1:
+with columns[0]:
     st.subheader("Real image")
     st.image(img_path, use_container_width=True)
 
-with c2:
-    st.subheader("Real mask")
-    gt_img, has_real = utils.colorize_gt(mask_path)
-    st.image(gt_img, use_container_width=True)
-    if not has_real:
-        st.info("This split has no real ground truth — mask is all background.")
+pred_col = columns[1]
+if has_gt:
+    with columns[1]:
+        st.subheader("Real mask")
+        gt_img, has_real = utils.colorize_gt(mask_path)
+        st.image(gt_img, use_container_width=True)
+        if not has_real:
+            st.info("This split has no real ground truth — mask is all background.")
+    pred_col = columns[2]
 
-with c3:
+with pred_col:
     st.subheader("Predicted mask")
     if run:
         try:
@@ -123,7 +126,7 @@ with c3:
         except Exception as e:
             st.error(f"Prediction failed: {e}")
     else:
-        st.info("Select an image ID and click **Predict mask**.")
+        st.info("Select an image and click **Predict mask**.")
 
 st.divider()
 st.caption("Classes")
