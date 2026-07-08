@@ -36,7 +36,7 @@ import utils
 
 # Streamlit-cached wrappers around the pure helpers.
 load_samples = st.cache_data(show_spinner=False)(utils.list_sample_images)
-cached_health = st.cache_data(show_spinner=False, ttl=30)(utils.wait_for_api)
+cached_health = st.cache_data(show_spinner=False, ttl=30)(utils.api_health)
 
 
 st.set_page_config(page_title="CityVision — Segmentation", layout="wide")
@@ -49,23 +49,13 @@ with st.sidebar:
     # container); no need to expose it in the UI.
     api_url = utils.DEFAULT_API.rstrip("/")
 
+    # Non-blocking status only — the app always loads; the API is woken on
+    # the first prediction (free hosts sleep when idle).
     try:
-        with st.spinner(
-            "Connecting to the API… (first call after idle can take ~1 min)"
-        ):
-            health = cached_health(api_url)
-        st.success(
-            f"API online — {health['architecture']} on {health['device']}"
-            + (
-                f" · val mIoU {health['val_mIoU']:.4f}"
-                if health.get("val_mIoU")
-                else ""
-            )
-        )
-    except Exception as e:
-        st.error(f"API not reachable at {api_url}\n\n{e}")
-        st.info("The API may be waking up — click **Rerun** (top-right) in a moment.")
-        st.stop()
+        health = cached_health(api_url)
+        st.success(f"API online — {health['architecture']} on {health['device']}")
+    except Exception:
+        st.warning("API is idle — it will wake on your first **Predict** (~1 min).")
 
     overlay = st.checkbox("Show prediction as overlay", value=False)
     alpha = st.slider("Overlay opacity", 0.0, 1.0, 0.5, 0.05, disabled=not overlay)
@@ -113,7 +103,8 @@ with pred_col:
     st.subheader("Predicted mask")
     if run:
         try:
-            with st.spinner("Calling API…"):
+            with st.spinner("Predicting… (waking the API if idle — up to ~1 min)"):
+                utils.wait_for_api(api_url)  # tolerate cold start
                 fmt = "overlay" if overlay else "color"
                 png = utils.api_predict(api_url, img_path, fmt=fmt, alpha=alpha)
             st.image(Image.open(io.BytesIO(png)), use_container_width=True)
