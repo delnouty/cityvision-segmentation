@@ -45,7 +45,9 @@ st.caption("Presentation UI that consumes the prediction API.")
 
 with st.sidebar:
     st.header("Settings")
-    api_url = st.text_input("API URL", value=utils.DEFAULT_API).rstrip("/")
+    # Backend URL comes from the CITYVISION_API env var (localhost in the
+    # container); no need to expose it in the UI.
+    api_url = utils.DEFAULT_API.rstrip("/")
 
     try:
         health = cached_health(api_url)
