@@ -104,9 +104,27 @@ def colorize_gt(mask_path: str):
 
 
 def api_health(api_url: str) -> dict:
-    r = requests.get(f"{api_url}/health", timeout=5)
+    r = requests.get(f"{api_url}/health", timeout=10)
     r.raise_for_status()
     return r.json()
+
+
+def wait_for_api(api_url: str, timeout: int = 90, interval: int = 4) -> dict:
+    """Poll /health until the API is up, tolerating cold starts.
+
+    Free hosts (e.g. HF Spaces) sleep when idle and return 503 for ~30-60s while
+    waking; keep retrying instead of failing on the first response."""
+    import time
+
+    deadline = time.time() + timeout
+    last_err = None
+    while time.time() < deadline:
+        try:
+            return api_health(api_url)
+        except Exception as e:  # noqa: BLE001 (503, timeout, conn error…)
+            last_err = e
+            time.sleep(interval)
+    raise last_err if last_err else RuntimeError("API not reachable")
 
 
 def api_predict(

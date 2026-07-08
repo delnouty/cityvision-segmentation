@@ -36,7 +36,7 @@ import utils
 
 # Streamlit-cached wrappers around the pure helpers.
 load_samples = st.cache_data(show_spinner=False)(utils.list_sample_images)
-cached_health = st.cache_data(show_spinner=False, ttl=30)(utils.api_health)
+cached_health = st.cache_data(show_spinner=False, ttl=30)(utils.wait_for_api)
 
 
 st.set_page_config(page_title="CityVision — Segmentation", layout="wide")
@@ -50,7 +50,10 @@ with st.sidebar:
     api_url = utils.DEFAULT_API.rstrip("/")
 
     try:
-        health = cached_health(api_url)
+        with st.spinner(
+            "Connecting to the API… (first call after idle can take ~1 min)"
+        ):
+            health = cached_health(api_url)
         st.success(
             f"API online — {health['architecture']} on {health['device']}"
             + (
@@ -61,7 +64,7 @@ with st.sidebar:
         )
     except Exception as e:
         st.error(f"API not reachable at {api_url}\n\n{e}")
-        st.info("Start it with:\n\n`uvicorn backend.app:app --port 8000`")
+        st.info("The API may be waking up — click **Rerun** (top-right) in a moment.")
         st.stop()
 
     overlay = st.checkbox("Show prediction as overlay", value=False)
