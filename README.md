@@ -10,6 +10,13 @@ FastAPI prediction API, and presenting results in a Streamlit app.
 **9 classes:** `background, road, building, vegetation, sky, person, car,
 traffic_sign, bicycle`.
 
+## 🚀 Live demo (Hugging Face Spaces)
+
+- **App (Streamlit):** https://huggingface.co/spaces/DaryaEL/cityvision
+- **Prediction API (FastAPI):** https://huggingface.co/spaces/DaryaEL/cityvision-api — interactive docs at [`/docs`](https://daryael-cityvision-api.hf.space/docs)
+
+The app consumes the API. Deployment recipe: [`deploy/hf/`](deploy/hf/).
+
 ---
 
 ## Architecture
