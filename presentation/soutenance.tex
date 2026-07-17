@@ -1,0 +1,598 @@
+%==============================================================
+%  CityVision — Segmentation sémantique de scènes urbaines
+%  Soutenance (20 min + discussion)
+%
+%  Compilation : pdflatex soutenance.tex  (2x pour la table des matières)
+%  ou           latexmk -pdf soutenance.tex
+%==============================================================
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% ---- Encodage & langue -------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+
+% ---- Thème -------------------------------------------------
+\usetheme{Madrid}
+\usecolortheme{whale}
+\useinnertheme{circles}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{caption}[numbered]
+
+% ---- Palette CityVision ------------------------------------
+\definecolor{cvblue}{RGB}{40,90,150}
+\definecolor{cvgreen}{RGB}{80,140,60}
+\definecolor{cvroad}{RGB}{128,64,128}
+\definecolor{cvgray}{RGB}{70,70,70}
+\definecolor{cvsky}{RGB}{70,130,180}
+\definecolor{cvred}{RGB}{220,20,60}
+\setbeamercolor{structure}{fg=cvblue}
+\setbeamercolor{title}{fg=white,bg=cvblue}
+\setbeamercolor{frametitle}{fg=white,bg=cvblue}
+
+% ---- Packages utiles ---------------------------------------
+\usepackage{booktabs}
+\usepackage{colortbl}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,backgrounds,calc}
+\usepackage{amsmath}
+\usepackage{fontawesome5}
+\usepackage{xcolor}
+
+% ---- Liens cliquables --------------------------------------
+\hypersetup{
+  colorlinks=true,
+  urlcolor=cvblue,
+  linkcolor=cvblue,
+}
+\urlstyle{same}
+
+% ---- Raccourcis --------------------------------------------
+\newcommand{\emphc}[1]{\textbf{\color{cvblue}#1}}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% ---- Page de titre -----------------------------------------
+\title[CityVision]{CityVision}
+\subtitle{Segmentation sémantique de scènes urbaines\\ et mise en production sur le Cloud}
+\author{Darya Filatova}
+\institute{Projet 8 --- Ingénieur IA}
+\date{\today}
+
+%==============================================================
+\begin{document}
+
+% ---- Slide de titre ----------------------------------------
+\begin{frame}[plain]
+  \titlepage
+  \begin{center}
+    \footnotesize\color{gray}
+    Cityscapes $\cdot$ 9 classes $\cdot$ U-Net \& transfer learning $\cdot$ FastAPI + Streamlit $\cdot$ Hugging Face Spaces
+  \end{center}
+\end{frame}
+
+% ---- Plan --------------------------------------------------
+\begin{frame}{Déroulé de la présentation}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \begin{enumerate}
+        \item \emphc{Contexte, objectifs \& principes} \hfill{\small(5 min)}
+          \begin{itemize}\footnotesize
+            \item Problème métier et jeu de données
+            \item Principe de la segmentation sémantique
+            \item Mesures de performance
+          \end{itemize}
+        \item \emphc{Modèles \& comparaisons} \hfill{\small(10 min)}
+          \begin{itemize}\footnotesize
+            \item 5 architectures
+            \item Protocole d'entraînement
+            \item Résultats \& analyse
+          \end{itemize}
+        \item \emphc{Mise en production} \hfill{\small(5 min)}
+          \begin{itemize}\footnotesize
+            \item Architecture API + application Web
+            \item Déploiement Cloud + démonstration
+          \end{itemize}
+      \end{enumerate}
+    \end{column}
+    \begin{column}{0.42\textwidth}
+      \centering
+      \begin{tikzpicture}[scale=0.9]
+        \foreach \c/\y in {cvsky/2.4, cvgray/1.8, cvroad/1.2, cvgreen/0.6}{
+          \fill[\c] (0,\y) rectangle (3,\y+0.55);
+        }
+        \fill[cvred] (2.2,1.25) rectangle (2.5,1.75);
+        \fill[cvred!70] (0.3,1.25) rectangle (0.55,1.7);
+        \node[below] at (1.5,0.5) {\footnotesize Masque de segmentation};
+      \end{tikzpicture}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%==============================================================
+\section{Contexte, objectifs \& principes}
+%==============================================================
+\begin{frame}{1 \textbar{} Contexte \& objectifs}
+  \begin{columns}[T]
+    \begin{column}{0.58\textwidth}
+      \textbf{Contexte métier}
+      \begin{itemize}
+        \item Compréhension automatique de scènes urbaines :
+          \emphc{véhicules autonomes}, \emphc{villes intelligentes}, cartographie.
+        \item Jeu de données \emphc{Cityscapes} : images de rues (Allemagne),
+          annotées au \emph{pixel près}.
+        \item Simplification à \emphc{9 classes} utiles :\\
+          \footnotesize \code{background, road, building, vegetation, sky,
+          person, car, traffic\_sign, bicycle}.
+      \end{itemize}
+      \vspace{0.4em}
+      \textbf{Objectifs du projet}
+      \begin{enumerate}
+        \item Entraîner et \emphc{comparer plusieurs modèles} de segmentation.
+        \item Sélectionner le meilleur via un suivi d'expériences (\emphc{MLflow}).
+        \item \emphc{Mettre en production} : API REST + application Web sur le Cloud.
+      \end{enumerate}
+    \end{column}
+    \begin{column}{0.40\textwidth}
+      \centering
+      \begin{tikzpicture}[scale=0.85]
+        % legende des classes
+        \foreach \name/\c/\y in {%
+          route/cvroad/3.0, bâtiment/cvgray/2.5, végétation/cvgreen/2.0,
+          ciel/cvsky/1.5, personne/cvred/1.0, voiture/{cvblue}/0.5}{
+          \fill[\c] (0,\y) rectangle (0.4,\y+0.35);
+          \node[right] at (0.5,\y+0.17) {\footnotesize \name};
+        }
+      \end{tikzpicture}
+      \\[0.3em]
+      {\footnotesize Palette de type Cityscapes (1 couleur / classe)}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{1 \textbar{} Qu'est-ce que la segmentation sémantique ?}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{Classer \emphc{chaque pixel}} de l'image dans une catégorie.
+      \begin{itemize}
+        \item Classification : 1 étiquette / \emph{image}.
+        \item Détection : 1 boîte / \emph{objet}.
+        \item \emphc{Segmentation} : 1 étiquette / \emph{pixel}
+          $\rightarrow$ sortie = image de même taille.
+      \end{itemize}
+      \vspace{0.5em}
+      \textbf{Principe : encodeur--décodeur}
+      \begin{itemize}\footnotesize
+        \item \emphc{Encodeur} : extrait les caractéristiques, réduit la
+          résolution (\emph{quoi ?}).
+        \item \emphc{Décodeur} : reconstruit la résolution d'origine
+          (\emph{où ?}).
+        \item \emphc{Skip connections} (U-Net) : réinjectent les détails fins
+          perdus au sous-échantillonnage.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \centering
+      \begin{tikzpicture}[scale=0.62, every node/.style={font=\scriptsize}]
+        % encoder
+        \fill[cvblue!70] (0,0) rectangle (0.6,4);
+        \fill[cvblue!60] (0.8,0.5) rectangle (1.4,3.5);
+        \fill[cvblue!50] (1.6,1) rectangle (2.2,3);
+        \fill[cvblue!40] (2.4,1.5) rectangle (2.8,2.5); % bottleneck
+        % decoder
+        \fill[cvgreen!50] (3.0,1) rectangle (3.6,3);
+        \fill[cvgreen!60] (3.8,0.5) rectangle (4.4,3.5);
+        \fill[cvgreen!70] (4.6,0) rectangle (5.2,4);
+        % skip arrows
+        \draw[-{Stealth},dashed,cvred] (0.6,3.7) to[bend left=20] (4.6,3.7);
+        \draw[-{Stealth},dashed,cvred] (1.4,3.2) to[bend left=20] (3.8,3.2);
+        \draw[-{Stealth},dashed,cvred] (2.2,2.7) to[bend left=15] (3.0,2.7);
+        \node at (1.4,-0.5) {Encodeur};
+        \node at (4.1,-0.5) {Décodeur};
+        \node[cvred] at (2.6,4.4) {\textit{skip connections}};
+        \node at (-0.1,2) [left] {image};
+        \node at (5.3,2) [right] {masque};
+      \end{tikzpicture}
+      \\[0.4em]
+      {\footnotesize Architecture en « U » (U-Net)}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{1 \textbar{} Mesures de performance}
+  \textbf{Comment comparer objectivement les modèles ?} — via la \emphc{matrice de confusion} par pixel.
+  \vspace{0.4em}
+  \begin{columns}[T]
+    \begin{column}{0.54\textwidth}
+      \emphc{IoU (Intersection over Union)} — par classe :
+      \[
+        \text{IoU} = \frac{|A \cap B|}{|A \cup B|}
+                   = \frac{TP}{TP + FP + FN}
+      \]
+      \vspace{-0.3em}
+      \begin{itemize}\footnotesize
+        \item \emphc{mIoU} : moyenne des IoU sur les 9 classes
+          $\rightarrow$ \textbf{métrique principale} (traite chaque classe à
+          égalité, même les rares).
+        \item \emphc{Pixel accuracy} : \% de pixels bien classés
+          $\rightarrow$ trompeur (dominé par les grandes classes : route, ciel).
+        \item \emphc{IoU par classe} : diagnostic fin (ex.\ panneaux, vélos).
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.44\textwidth}
+      \centering
+      \begin{tikzpicture}[scale=1.5]
+        \fill[cvblue!30] (0,0) circle (0.6);
+        \fill[cvgreen!30] (0.6,0) circle (0.6);
+        \begin{scope}
+          \clip (0,0) circle (0.6);
+          \fill[cvred!45] (0.6,0) circle (0.6);
+        \end{scope}
+        \node at (-0.25,0) {\scriptsize Vérité};
+        \node at (0.85,0) {\scriptsize Prédit};
+        \node[cvred] at (0.3,-0.85) {\scriptsize $\cap$ = TP};
+      \end{tikzpicture}
+      \\[0.3em]
+      {\footnotesize Pourquoi mIoU ? Robuste au fort déséquilibre des classes.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%==============================================================
+\section{Modèles \& comparaisons}
+%==============================================================
+\begin{frame}{2 \textbar{} Les 5 architectures comparées}
+  \centering
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    \textbf{Modèle} & \textbf{Encodeur} & \textbf{Idée clé} \\
+    \midrule
+    UNet          & from scratch          & Référence, aucun pré-entraînement \\
+    SegNet        & from scratch          & Décodeur par \emph{max-unpooling} (indices) \\
+    VGG16-UNet    & VGG16 (ImageNet)      & \emphc{Transfer learning}, encodeur classique \\
+    ResNet34-UNet & ResNet34 (ImageNet)   & Connexions résiduelles \\
+    \rowcolor{cvgreen!18}
+    ResNet50-UNet & ResNet50 (ImageNet)   & Encodeur profond \textbf{$\rightarrow$ retenu} \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.8em}
+  \begin{itemize}\footnotesize
+    \item Toutes partagent le même \emphc{décodeur de type U-Net} (skip connections).
+    \item \emphc{Hypothèse} : un encodeur pré-entraîné sur ImageNet apporte des
+      caractéristiques génériques (bords, textures) $\rightarrow$ meilleure segmentation.
+    \item Code factorisé dans un package partagé \code{cityvision/} (classes, palette, modèles)
+      — \emph{une seule source de vérité} pour l'entraînement \emph{et} le service.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{2 \textbar{} Protocole d'entraînement}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{Données \& prétraitement}
+      \begin{itemize}\footnotesize
+        \item Cityscapes, redimensionné à \emphc{512$\times$1024}.
+        \item Normalisation \emphc{ImageNet} (cohérente avec les encodeurs pré-entraînés).
+        \item Remappage des \code{labelIds} bruts $\rightarrow$ 9 classes.
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Optimisation}
+      \begin{itemize}\footnotesize
+        \item Optimiseur \emphc{Adam}, 20 epochs, \emphc{early stopping} (patience 5).
+        \item \emphc{Learning rate différentiel} : encodeur $\times$0{,}1, décodeur $\times$1
+          (on ne « casse » pas les poids pré-entraînés).
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \textbf{Gestion du \emphc{déséquilibre des classes}}
+      \begin{itemize}\footnotesize
+        \item Perte combinée \emphc{Cross-Entropy + Dice}, pondérée par classe
+          (panneaux \& vélos $\times$3, personnes $\times$2{,}5).
+        \item \emphc{WeightedRandomSampler} : enrichit les batchs en images
+          contenant des classes rares.
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Suivi \& reproductibilité}
+      \begin{itemize}\footnotesize
+        \item \emphc{MLflow} : paramètres, métriques par epoch, IoU par classe,
+          artefact du meilleur checkpoint.
+        \item Comparaison \emph{avec / sans augmentation} (flip horizontal + color jitter).
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{2 \textbar{} Résultats : comparaison des modèles}
+  \centering
+  \renewcommand{\arraystretch}{1.35}
+  \begin{tabular}{@{}llc@{}}
+    \toprule
+    \textbf{Architecture} & \textbf{Encodeur} & \textbf{mIoU (validation)} \\
+    \midrule
+    \rowcolor{cvgreen!22}
+    \textbf{ResNet50-UNet} & ResNet50 (pré-entraîné) & \textbf{0{,}816} \; \faStar \\
+    ResNet34-UNet          & ResNet34 (pré-entraîné) & 0{,}805 \\
+    VGG16-UNet             & VGG16 (pré-entraîné)    & 0{,}798 \\
+    UNet                   & from scratch            & 0{,}684 \\
+    SegNet                 & from scratch            & \textit{non entraîné} \\
+    \bottomrule
+  \end{tabular}
+  \vspace{0.9em}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \begin{block}{\small Enseignement principal}
+        \footnotesize Les encodeurs \emphc{pré-entraînés} surpassent nettement
+        l'entraînement \emph{from scratch} : \textbf{+0{,}13 de mIoU}
+        (0{,}68 $\rightarrow$ 0{,}82).
+      \end{block}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      % mini bar chart
+      \begin{tikzpicture}[scale=1]
+        \foreach \m/\v/\y/\c in {%
+          {R50}/0.816/2.4/cvgreen, {R34}/0.805/1.8/cvblue,
+          {VGG}/0.798/1.2/cvblue, {UNet}/0.684/0.6/cvgray}{
+          \fill[\c!70] (0,\y) rectangle (\v*4,\y+0.4);
+          \node[left] at (0,\y+0.2) {\scriptsize \m};
+          \node[right] at (\v*4,\y+0.2) {\scriptsize \v};
+        }
+        \draw[->] (0,0.4) -- (3.6,0.4);
+      \end{tikzpicture}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{2 \textbar{} Analyse qualitative \& par classe}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \textbf{Ce qui marche bien}
+      \begin{itemize}\footnotesize
+        \item Grandes classes structurantes : \emphc{route, bâtiment, ciel,
+          végétation} $\rightarrow$ IoU élevée.
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Ce qui reste difficile}
+      \begin{itemize}\footnotesize
+        \item Petits objets fins et rares : \emphc{panneaux, vélos, personnes}
+          $\rightarrow$ IoU plus faible.
+        \item D'où les \emph{contre-mesures} : pondération de la perte +
+          échantillonnage équilibré + résolution 512$\times$1024.
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Effet de l'augmentation}
+      \begin{itemize}\footnotesize
+        \item Flip + color jitter : gain modéré, surtout en robustesse
+          (comparé dans les notebooks).
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.45\textwidth}
+      \centering
+      % IoU par classe illustratif
+      \begin{tikzpicture}[scale=0.95]
+        \foreach \name/\v/\y/\c in {%
+          route/0.95/3.0/cvroad, ciel/0.92/2.5/cvsky,
+          bâtiment/0.88/2.0/cvgray, végét./0.85/1.5/cvgreen,
+          voiture/0.80/1.0/cvblue, personne/0.55/0.5/cvred,
+          panneau/0.45/0.0/cvred}{
+          \fill[\c] (0,\y) rectangle (\v*3,\y+0.32);
+          \node[left] at (0,\y+0.16) {\scriptsize \name};
+        }
+        \draw[->] (0,-0.05) -- (3.1,-0.05) node[right]{\scriptsize IoU};
+      \end{tikzpicture}
+      \\[0.3em]
+      {\footnotesize IoU par classe (tendance) : rare \& petit = plus dur.}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%==============================================================
+\section{Mise en production}
+%==============================================================
+\begin{frame}{3 \textbar{} Architecture : API + application Web}
+  \centering
+  \begin{tikzpicture}[
+      box/.style={rounded corners,draw=cvblue,very thick,align=center,
+                  minimum height=1.5cm,minimum width=3.4cm,fill=cvblue!8},
+      shared/.style={rounded corners,draw=cvgreen,thick,align=center,
+                  fill=cvgreen!10,minimum width=8cm},
+      font=\small]
+    \node[box] (front) {\textbf{Frontend --- Streamlit}\\[2pt]
+        \footnotesize choisit une image,\\ affiche image / masque réel / prédiction\\ \code{:8501}};
+    \node[box,right=3.2cm of front] (back) {\textbf{Backend --- FastAPI}\\[2pt]
+        \footnotesize modèle ResNet50-UNet\\ embarqué (poids \code{.pth})\\ \code{:8000}};
+    \draw[-{Stealth},very thick,cvblue] ([yshift=6pt]front.east) -- node[above,font=\scriptsize]{HTTP : image} ([yshift=6pt]back.west);
+    \draw[{Stealth}-,very thick,cvgreen] ([yshift=-6pt]front.east) -- node[below,font=\scriptsize]{JSON / PNG : masque} ([yshift=-6pt]back.west);
+    \coordinate (mid) at ($(front)!0.5!(back)$);
+    \node[shared,below=1.0cm of mid] (core)
+        {\textbf{\code{cityvision/}} --- socle partagé : taxonomie des classes, palette, définitions des modèles};
+    \draw[dashed,cvgreen] (front.south) -- (core.north west);
+    \draw[dashed,cvgreen] (back.south) -- (core.north east);
+  \end{tikzpicture}
+  \vspace{0.5em}
+  \begin{itemize}\footnotesize
+    \item \emphc{Découplage} client / service : le frontend ne fait \emph{que} des appels HTTP.
+    \item \emphc{Même code d'inférence qu'à l'entraînement} (prétraitement ImageNet identique)
+      $\rightarrow$ pas de \emph{training/serving skew}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{3 \textbar{} L'API REST de prédiction}
+  \centering
+  {\small
+  \renewcommand{\arraystretch}{1.1}
+  \begin{tabular}{@{}llp{5.4cm}@{}}
+    \toprule
+    \textbf{Méthode} & \textbf{Route} & \textbf{Rôle} \\
+    \midrule
+    GET  & \code{/health}          & état du service + modèle chargé \\
+    GET  & \code{/docs}            & documentation interactive Swagger \\
+    POST & \code{/predict}         & image $\rightarrow$ masque \textbf{JSON} (\code{dense}/\code{rle}) \\
+    POST & \code{/predict/image}   & image $\rightarrow$ masque \textbf{PNG} (\code{color}/\code{overlay}/\code{raw}) \\
+    POST & \code{/predict/classes} & image $\rightarrow$ classes détectées + \% couverture \\
+    \bottomrule
+  \end{tabular}}
+  \vspace{0.5em}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+      \textbf{\small Choix de conception}
+      \begin{itemize}\scriptsize
+        \item Modèle chargé \emphc{une fois au démarrage}.
+        \item Inférence CPU en \emphc{threadpool} (boucle async libre).
+        \item Encodage \emphc{RLE} : masque compact (grandes images).
+        \item Garde-fous : limite d'upload, validation, logs JSON.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.46\textwidth}
+      \textbf{\small Exemple d'appel}\\[2pt]
+      \begin{block}{}
+        \scriptsize\ttfamily
+        curl -X POST \textbackslash\\
+        \ "http://.../predict/image?\\
+        \ \ format=overlay" \textbackslash\\
+        \ -F "file=@scene.png" \textbackslash\\
+        \ -o overlay.png
+      \end{block}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{3 \textbar{} Démarche de mise en production (Cloud)}
+  \begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+      \textbf{Conteneurisation}
+      \begin{itemize}\footnotesize
+        \item Deux images \emphc{Docker} (backend / frontend), orchestrées en local
+          par \code{docker compose}.
+        \item PyTorch \emphc{CPU} + poids \code{.pth} \emphc{embarqués} dans l'image
+          (via \code{git-lfs}).
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Cloud choisi : \emphc{Hugging Face Spaces}}
+      \begin{itemize}\footnotesize
+        \item \emphc{Deux Spaces} (SDK Docker) : un pour l'\emph{API}, un pour l'\emph{app}.
+        \item L'app consomme l'API via la variable \code{CITYVISION\_API}.
+        \item Pourquoi ? \emph{gratuit/simple, natif Docker, déploiement par \code{git push}},
+          idéal pour une démo publique.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \textbf{Qualité \& CI/CD}
+      \begin{itemize}\footnotesize
+        \item \emphc{GitHub Actions} : \code{black} + \code{flake8} + \code{pytest}
+          à chaque push/PR.
+        \item Tests backend \emph{et} frontend (\code{tests/}).
+      \end{itemize}
+      \vspace{0.4em}
+      \begin{block}{\small Démo en ligne \faLink}
+        \centering\footnotesize
+        \href{https://huggingface.co/spaces/DaryaEL/cityvision}{%
+          \beamergotobutton{\faGlobe~Application}}\\[4pt]
+        \href{https://daryael-cityvision-api.hf.space/docs}{%
+          \beamergotobutton{\faServer~API (Swagger)}}
+      \end{block}
+      {\scriptsize\centering\textit{(liens cliquables)}\par}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{3 \textbar{} Démonstration}
+  \begin{columns}[T]
+    \begin{column}{0.55\textwidth}
+      \textbf{Scénario de démonstration}
+      \begin{enumerate}
+        \item Ouvrir l'\emphc{application Streamlit}.
+        \item Sélectionner une image de rue.
+        \item L'app appelle \code{POST /predict/image} sur l'API.
+        \item Affichage côte à côte :\\
+          \emphc{image réelle} $\cdot$ \emphc{masque réel} $\cdot$ \emphc{masque prédit}.
+        \item Superposition (\emph{overlay}) réglable + classes détectées.
+      \end{enumerate}
+      \vspace{0.4em}
+
+      \textbf{\small Lancer la démo} \faLink\\[4pt]
+      {\footnotesize
+      \href{https://huggingface.co/spaces/DaryaEL/cityvision}{%
+        \beamergotobutton{\faGlobe~Ouvrir l'application}}\\[3pt]
+      \href{https://daryael-cityvision-api.hf.space/docs}{%
+        \beamergotobutton{\faServer~Ouvrir l'API (Swagger /docs)}}}
+      \\[0.5em]
+      {\scriptsize \faInfoCircle~En repli : \code{curl} direct sur l'API.}
+    \end{column}
+    \begin{column}{0.45\textwidth}
+      \centering
+      \begin{tikzpicture}[scale=0.62]
+        % image reelle
+        \fill[gray!30] (0,3) rectangle (3,5);
+        \node at (1.5,5.3) {\scriptsize image d'entrée};
+        % masque predit
+        \fill[cvsky] (0,0) rectangle (3,2);
+        \fill[cvgray] (0,0) rectangle (3,1.2);
+        \fill[cvroad] (0,0) rectangle (3,0.6);
+        \fill[cvred] (2.2,0.6) rectangle (2.5,1.1);
+        \fill[cvgreen] (0,1.2) rectangle (0.7,1.6);
+        \node at (1.5,-0.4) {\scriptsize masque prédit};
+        \draw[-{Stealth},very thick,cvblue] (1.5,2.9) -- (1.5,2.1);
+      \end{tikzpicture}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+%==============================================================
+\section{Discussion}
+%==============================================================
+\begin{frame}{Points de discussion anticipés}
+  \small
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{Modélisation}
+      \begin{itemize}\footnotesize
+        \item \emphc{Pourquoi U-Net ?} skip connections = récupération des détails fins,
+          efficace sur peu de données.
+        \item \emphc{Pourquoi le mIoU ?} insensible au déséquilibre, standard Cityscapes.
+        \item \emphc{ResNet50 vs ResNet34 ?} +0{,}011 de mIoU pour un coût plus élevé —
+          arbitrage qualité/latence.
+        \item \emphc{Déséquilibre} traité par perte pondérée + Dice + sampler.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \textbf{Production}
+      \begin{itemize}\footnotesize
+        \item \emphc{HF Spaces vs AWS/GCP ?} simplicité \& coût pour une démo ;
+          migration possible (l'image Docker est portable).
+        \item \emphc{Latence CPU ?} acceptable pour la démo ; GPU si passage à l'échelle.
+        \item \emphc{Résolution 512$\times$1024 ?} compromis mémoire / détails
+          (petits objets).
+        \item \emphc{Robustesse} : validation d'entrée, limite d'upload, logs structurés.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+  \vspace{0.4em}
+  \begin{center}\footnotesize\color{cvblue}
+    Pistes d'amélioration : modèles type DeepLab/Transformer, quantification, GPU, jeu de données élargi.
+  \end{center}
+\end{frame}
+
+% ---- Conclusion / Débriefing -------------------------------
+{
+\setbeamercolor{background canvas}{bg=cvblue}
+\setbeamercolor{normal text}{fg=white}
+\usebeamercolor[fg]{normal text}
+\hypersetup{urlcolor=white}
+\begin{frame}[plain]
+  \centering
+  \vfill
+  {\Large\textbf{Merci --- place à la discussion}}\\[1.2em]
+  {\large\textbf{CityVision}}\\[0.5em]
+  Segmentation urbaine $\rightarrow$ ResNet50-UNet (mIoU 0{,}816)\\[0.3em]
+  $\rightarrow$ API FastAPI + app Streamlit $\rightarrow$ Hugging Face Spaces
+  \vfill
+  {\footnotesize\href{https://github.com/delnouty/cityvision-segmentation}{\color{white}\faGithub~\texttt{github.com/delnouty/cityvision-segmentation}}}\\[0.8em]
+  {\footnotesize
+    \href{https://huggingface.co/spaces/DaryaEL/cityvision}{\color{white}\faGlobe~App}
+    \quad\textbar\quad
+    \href{https://daryael-cityvision-api.hf.space/docs}{\color{white}\faServer~API}}
+  \vfill
+\end{frame}
+}
+
+\end{document}
