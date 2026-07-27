@@ -195,7 +195,7 @@ def main():
 
     # Reduce LR by ×0.5 if val mIoU stops improving for 4 epochs
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=0.5, patience=4, verbose=True
+        optimizer, mode="max", factor=0.5, patience=4
     )
 
     os.chdir(project_root)

@@ -27,6 +27,12 @@
 \definecolor{cvgray}{RGB}{70,70,70}
 \definecolor{cvsky}{RGB}{70,130,180}
 \definecolor{cvred}{RGB}{220,20,60}
+% ---- Couleurs exactes des 9 classes (cf. cityvision/constants.py) ----
+\definecolor{clsbg}{RGB}{0,0,0}       % background
+\definecolor{clsveg}{RGB}{107,142,35} % vegetation
+\definecolor{clscar}{RGB}{0,0,142}    % car
+\definecolor{clssign}{RGB}{220,220,0} % traffic_sign
+\definecolor{clsbike}{RGB}{119,11,32} % bicycle
 \setbeamercolor{structure}{fg=cvblue}
 \setbeamercolor{title}{fg=white,bg=cvblue}
 \setbeamercolor{frametitle}{fg=white,bg=cvblue}
@@ -84,7 +90,7 @@
           \end{itemize}
         \item \emphc{Modèles \& comparaisons} \hfill{\small(10 min)}
           \begin{itemize}\footnotesize
-            \item 5 architectures
+            \item 4 architectures
             \item Protocole d'entraînement
             \item Résultats \& analyse
           \end{itemize}
@@ -121,26 +127,22 @@
           \emphc{véhicules autonomes}, \emphc{villes intelligentes}, cartographie.
         \item Jeu de données \emphc{Cityscapes} : images de rues (Allemagne),
           annotées au \emph{pixel près}.
-        \item Simplification à \emphc{9 classes} utiles :\\
-          \footnotesize \code{background, road, building, vegetation, sky,
-          person, car, traffic\_sign, bicycle}.
+        \item Simplification à \emphc{8 classes} utiles :\\
+          \footnotesize \code{road, building, vegetation, sky,
+          person, car, traffic\_sign, bicycle}\\
+          \code{+ background} (tout le reste).
       \end{itemize}
-      \vspace{0.4em}
-      \textbf{Objectifs du projet}
-      \begin{enumerate}
-        \item Entraîner et \emphc{comparer plusieurs modèles} de segmentation.
-        \item Sélectionner le meilleur via un suivi d'expériences (\emphc{MLflow}).
-        \item \emphc{Mettre en production} : API REST + application Web sur le Cloud.
-      \end{enumerate}
     \end{column}
     \begin{column}{0.40\textwidth}
       \centering
-      \begin{tikzpicture}[scale=0.85]
-        % legende des classes
+      \begin{tikzpicture}[scale=0.62]
+        % legende des 9 classes
         \foreach \name/\c/\y in {%
-          route/cvroad/3.0, bâtiment/cvgray/2.5, végétation/cvgreen/2.0,
-          ciel/cvsky/1.5, personne/cvred/1.0, voiture/{cvblue}/0.5}{
+          background/clsbg/4.0, route/cvroad/3.5, bâtiment/cvgray/3.0,
+          végétation/clsveg/2.5, ciel/cvsky/2.0, personne/cvred/1.5,
+          voiture/clscar/1.0, panneau/clssign/0.5, vélo/clsbike/0.0}{
           \fill[\c] (0,\y) rectangle (0.4,\y+0.35);
+          \draw[gray!40,line width=0.2pt] (0,\y) rectangle (0.4,\y+0.35);
           \node[right] at (0.5,\y+0.17) {\footnotesize \name};
         }
       \end{tikzpicture}
@@ -148,6 +150,13 @@
       {\footnotesize Palette de type Cityscapes (1 couleur / classe)}
     \end{column}
   \end{columns}
+  \vspace{0.5em}
+  \textbf{Objectifs du projet}
+  \begin{enumerate}
+    \item Entraîner et \emphc{comparer plusieurs modèles} de segmentation.
+    \item Sélectionner le meilleur via un suivi d'expériences (\emphc{MLflow}).
+    \item \emphc{Mettre en production} : API REST + application Web sur le Cloud.
+  \end{enumerate}
 \end{frame}
 
 \begin{frame}{1 \textbar{} Qu'est-ce que la segmentation sémantique ?}
@@ -241,7 +250,7 @@
 %==============================================================
 \section{Modèles \& comparaisons}
 %==============================================================
-\begin{frame}{2 \textbar{} Les 5 architectures comparées}
+\begin{frame}{2 \textbar{} Les 4 architectures comparées}
   \centering
   \renewcommand{\arraystretch}{1.3}
   \begin{tabular}{@{}lll@{}}
@@ -249,7 +258,6 @@
     \textbf{Modèle} & \textbf{Encodeur} & \textbf{Idée clé} \\
     \midrule
     UNet          & from scratch          & Référence, aucun pré-entraînement \\
-    SegNet        & from scratch          & Décodeur par \emph{max-unpooling} (indices) \\
     VGG16-UNet    & VGG16 (ImageNet)      & \emphc{Transfer learning}, encodeur classique \\
     ResNet34-UNet & ResNet34 (ImageNet)   & Connexions résiduelles \\
     \rowcolor{cvgreen!18}
@@ -314,7 +322,6 @@
     ResNet34-UNet          & ResNet34 (pré-entraîné) & 0{,}805 \\
     VGG16-UNet             & VGG16 (pré-entraîné)    & 0{,}798 \\
     UNet                   & from scratch            & 0{,}684 \\
-    SegNet                 & from scratch            & \textit{non entraîné} \\
     \bottomrule
   \end{tabular}
   \vspace{0.9em}
@@ -401,9 +408,9 @@
     \node[box,right=3.2cm of front] (back) {\textbf{Backend --- FastAPI}\\[2pt]
         \footnotesize modèle ResNet50-UNet\\ embarqué (poids \code{.pth})\\ \code{:8000}};
     \draw[-{Stealth},very thick,cvblue] ([yshift=6pt]front.east) -- node[above,font=\scriptsize]{HTTP : image} ([yshift=6pt]back.west);
-    \draw[{Stealth}-,very thick,cvgreen] ([yshift=-6pt]front.east) -- node[below,font=\scriptsize]{JSON / PNG : masque} ([yshift=-6pt]back.west);
-    \coordinate (mid) at ($(front)!0.5!(back)$);
-    \node[shared,below=1.0cm of mid] (core)
+    \draw[{Stealth}-,very thick,cvgreen] ([yshift=-6pt]front.east) -- node[below,align=center,font=\scriptsize]{PNG : masque prédit\\JSON : classes détectées} ([yshift=-6pt]back.west);
+    \coordinate (mid) at ($(front.south)!0.5!(back.south)$);
+    \node[shared,below=1.1cm of mid] (core)
         {\textbf{\code{cityvision/}} --- socle partagé : taxonomie des classes, palette, définitions des modèles};
     \draw[dashed,cvgreen] (front.south) -- (core.north west);
     \draw[dashed,cvgreen] (back.south) -- (core.north east);
@@ -594,5 +601,94 @@
   \vfill
 \end{frame}
 }
+
+%==============================================================
+%  ANNEXES (backup slides — hors plan principal)
+%==============================================================
+\appendix
+
+\begin{frame}{Annexe \textbar{} Motivation de l'architecture}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{Découplage frontend / backend}
+      \begin{itemize}\footnotesize
+        \item Frontend \emphc{Streamlit léger} (sans PyTorch) $\leftrightarrow$
+          backend \emphc{FastAPI} qui embarque le modèle.
+        \item Déploiement \& montée en charge \emphc{indépendants} ;
+          le frontend n'a aucune dépendance lourde.
+        \item Contrat clair : le client ne fait que des appels HTTP.
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Pourquoi \emphc{FastAPI}}
+      \begin{itemize}\footnotesize
+        \item Inférence CPU en \emphc{threadpool} (boucle async non bloquée).
+        \item Validation d'entrée, \emphc{OpenAPI} auto (\code{/docs}),
+          garde-fous (limite d'upload).
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \textbf{Une API \emphc{« style REST »}}
+      \begin{itemize}\footnotesize
+        \item \emphc{Sans état} : chaque requête est autonome, modèle chargé
+          une fois au démarrage.
+        \item Méthodes HTTP standard (\code{GET /health}, \code{POST /predict}\dots),
+          codes de statut (413, 503), représentations \emphc{JSON \& PNG}.
+        \item \emphc{Interopérable} : tout client (curl, Streamlit, navigateur).
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Nuance honnête : REST \emph{pragmatique}}
+      \begin{itemize}\footnotesize
+        \item Points d'entrée \emphc{orientés action} (\code{/predict},
+          \code{/predict/image}) plutôt qu'orientés ressource
+          (\code{/predictions/\{id\}}).
+        \item Pas de \emph{HATEOAS}, pas de ressource adressable persistante
+          --- inutile pour une inférence sans état.
+        \item Compromis assumé : \emphc{simplicité} $>$ pureté REST pour un
+          service d'inférence.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Annexe \textbar{} Motivation du choix Cloud}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \textbf{Critères de sélection}
+      \begin{itemize}\footnotesize
+        \item Démo \emphc{publique}, simple et à \emphc{faible coût}.
+        \item Déploiement \emphc{reproductible} (Docker) et rapide
+          (\code{git push}).
+        \item Écosystème orienté \emphc{ML / IA}.
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Pourquoi \emphc{Hugging Face Spaces}}
+      \begin{itemize}\footnotesize
+        \item \emphc{SDK Docker natif} : la même image qu'en local, pas de refonte.
+        \item Déploiement par \code{git push} ; URL publique + HTTPS fournis.
+        \item \emphc{Deux Spaces} : API (FastAPI) + app (Streamlit),
+          reliés par \code{CITYVISION\_API}.
+        \item API en \emphc{always-on} (payant) pour éviter les \emph{cold starts} ;
+          app sur l'offre gratuite.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \textbf{Alternatives considérées}
+      \begin{itemize}\footnotesize
+        \item \emphc{AWS / GCP / Azure} : plus puissants (GPU, autoscaling)
+          mais configuration \& coût plus lourds pour une simple démo.
+        \item \emphc{Render / Railway} : proches en simplicité, mais moins
+          orientés ML et sans écosystème de modèles.
+      \end{itemize}
+      \vspace{0.3em}
+      \textbf{Compromis assumés}
+      \begin{itemize}\footnotesize
+        \item \emphc{CPU only} : latence acceptable pour la démo
+          (GPU si passage à l'échelle).
+        \item Dépendance à HF, mais l'\emphc{image Docker est portable}
+          $\rightarrow$ migration possible sans réécriture.
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
 
 \end{document}
