@@ -15,7 +15,9 @@ traffic_sign, bicycle`.
 - **App (Streamlit):** https://huggingface.co/spaces/DaryaEL/cityvision
 - **Prediction API (FastAPI):** https://huggingface.co/spaces/DaryaEL/cityvision-api — interactive docs at [`/docs`](https://daryael-cityvision-api.hf.space/docs)
 
-The app consumes the API. Deployment recipe: [`deploy/hf/`](deploy/hf/).
+The app consumes the API. Deployment recipe: [`deploy/hf/`](deploy/hf/) — full
+step-by-step guide in [`deploy/hf/DEPLOYMENT.md`](deploy/hf/DEPLOYMENT.md)
+([PDF](deploy/hf/DEPLOYMENT.pdf)).
 
 ---
 
@@ -113,6 +115,14 @@ streamlit run frontend/streamlit_app.py     # terminal 2 — UI
 ---
 
 ## The prediction API
+
+> **Project requirement — "a Flask/FastAPI API, deployed on the Cloud, that takes an
+> image and returns the predicted mask":** fulfilled by this **FastAPI** service
+> ([`backend/app.py`](backend/app.py)), deployed on **Hugging Face Spaces** (see
+> [Live demo](#-live-demo-hugging-face-spaces)). The **image → predicted mask**
+> contract is `POST /predict` (mask as JSON) and `POST /predict/image` (mask as PNG)
+> — the core inference is `segmenter.predict(image)` in
+> [`backend/app.py`](backend/app.py).
 
 | Method | Path               | Description |
 |--------|--------------------|-------------|

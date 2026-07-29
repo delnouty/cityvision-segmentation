@@ -1,0 +1,480 @@
+%=====================================================================
+%  CityVision — Hugging Face Spaces deployment guide (PDF version)
+%  Compile:  pdflatex DEPLOYMENT.tex   (run once; no cross-refs)
+%=====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{amssymb}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,urlcolor=blue,linkcolor=black]{hyperref}
+
+\definecolor{cvblue}{RGB}{40,90,150}
+\definecolor{codebg}{RGB}{244,246,248}
+\definecolor{rulegray}{RGB}{120,120,120}
+
+% ---- code styling ----
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  upquote=true,
+}
+\lstdefinestyle{block}{
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{rulegray!40},
+  framesep=5pt,
+  xleftmargin=6pt,
+  xrightmargin=2pt,
+  basicstyle=\ttfamily\small,
+}
+% inline code shortcut:  \c{some_code}
+\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily\normalsize]|#1|}
+
+% ---- headings ----
+\titleformat{\section}{\Large\bfseries\color{cvblue}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.5em}{}
+\setlist[itemize]{leftmargin=1.4em,itemsep=2pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=1.6em,itemsep=2pt,topsep=2pt}
+
+\newcommand{\rarr}{$\rightarrow$}
+
+\title{\vspace{-1.2cm}\textbf{\color{cvblue}Deploying CityVision on Hugging Face Spaces}\\[2pt]
+\large A complete, repo-accurate guide}
+\author{CityVision — urban scene semantic segmentation}
+\date{\today}
+
+\begin{document}
+\maketitle
+\vspace{-0.6cm}
+
+\noindent
+This guide deploys CityVision as \textbf{two Hugging Face Spaces}:
+\begin{itemize}
+  \item \textbf{API Space} — the FastAPI prediction service (carries the model
+    weights, uses PyTorch).
+  \item \textbf{App Space} — the Streamlit demo UI (lean, no PyTorch; calls the API
+    over HTTP).
+\end{itemize}
+It covers the \emph{why} (separation, Docker) and every concrete step: creating
+Spaces, git-lfs for the weights, what to push where, the port gotcha, wiring the
+two together, updating, and troubleshooting.
+
+\medskip
+\noindent\textbf{Repo references:} \code{deploy/hf/api/Dockerfile},
+\code{deploy/hf/api/README.md}, \code{deploy/hf/app/Dockerfile},
+\code{deploy/hf/app/README.md}, \code{docker/*.Dockerfile},
+\code{docker-compose.yml}, \code{.dockerignore}.
+
+%=====================================================================
+\section{Mental model — how HF Spaces work}
+
+A Hugging Face \textbf{Space is just a git repository} hosted on
+\code{huggingface.co}, with a few extra rules:
+
+\begin{enumerate}
+  \item \textbf{A \code{README.md} with a YAML front-matter header configures the
+    Space.} The key fields:
+\begin{lstlisting}[style=block]
+---
+title: CityVision Segmentation API
+emoji: <road emoji>
+colorFrom: blue
+colorTo: green
+sdk: docker        # build a Dockerfile (not the Gradio/Streamlit auto-SDK)
+app_port: 7860     # the port HF routes public traffic to
+pinned: false
+---
+\end{lstlisting}
+  \item \textbf{\code{sdk: docker} means HF builds the \code{Dockerfile} at the repo
+    root} and runs the container. Whatever your Dockerfile's \code{CMD} starts is
+    your app.
+  \item \textbf{HF exposes exactly one port: \code{app_port} (7860 by convention).}
+    Your server \emph{must} listen on it. This is why the HF Dockerfiles serve on
+    7860 while local \code{docker-compose} uses 8000/8501 (see the port gotcha).
+  \item \textbf{Public URLs:}
+    \begin{itemize}
+      \item Space page (build logs, settings):
+        \code{https://huggingface.co/spaces/<user>/<space>}
+      \item Direct app URL (what clients hit): \code{https://<user>-<space>.hf.space}
+        (username + space, lowercased, non-alphanumerics \rarr{} \code{-}).
+      \item Example: user \code{DaryaEL}, space \code{cityvision-api} \rarr{}
+        \code{https://daryael-cityvision-api.hf.space}.
+    \end{itemize}
+  \item \textbf{Files $>$ 10 MB must be tracked with git-lfs} (our ResNet50 weight is
+    $\sim$157 MB).
+\end{enumerate}
+
+You end up with \textbf{two independent Space repos}, each with a root-level
+\code{Dockerfile} + \code{README.md} and the subset of the project it needs.
+
+%=====================================================================
+\section{Why separate frontend and backend?}
+
+\begin{tabularx}{\linewidth}{@{}p{3.2cm}X@{}}
+\toprule
+\textbf{Reason} & \textbf{Detail} \\
+\midrule
+Different dependency weight & Backend needs PyTorch + torchvision ($\sim$hundreds of
+MB) and the weights; frontend needs only Streamlit + requests + Pillow + numpy ---
+\emph{no torch}. Splitting keeps the UI image small and fast. \\
+\addlinespace
+Independent scaling \& cost & Inference is the expensive part. Put the \textbf{API on
+paid always-on} hardware (no cold starts) while the \textbf{UI stays free}. A
+monolith couldn't. \\
+\addlinespace
+Clean contract & The frontend only makes HTTP calls (\code{/predict/image},
+\code{/predict/classes}, \code{/health}). Any client --- curl, browser, another app
+--- uses the API identically. \\
+\addlinespace
+No training/serving skew & API and training import the \textbf{same
+\code{cityvision/} package} (classes, palette, model defs), so preprocessing is
+identical everywhere. \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+The frontend reaches the backend purely through the \code{CITYVISION_API}
+environment variable --- locally \code{http://backend:8000} (compose network), in the
+cloud the API Space's public URL.
+
+%=====================================================================
+\section{Why Docker (and why the Docker SDK on HF)?}
+
+\begin{itemize}
+  \item \textbf{Reproducibility} --- the image pins exact versions
+    (\code{torch==2.12.0}, \code{fastapi==0.136.3}, \dots). "Works on my machine"
+    becomes "works everywhere".
+  \item \textbf{Same artifact locally and in the cloud} --- validate with
+    \code{docker compose up}, then deploy the same Dockerfile logic to HF.
+  \item \textbf{Full control of the environment} --- we install \textbf{CPU-only
+    PyTorch wheels} (\code{--index-url https://download.pytorch.org/whl/cpu}), far
+    smaller than the CUDA build. HF free/basic hardware is CPU anyway.
+  \item \textbf{Portability / no lock-in} --- the same images run on
+    AWS/GCP/Azure/Render. HF is a convenient host, not a dependency.
+  \item \textbf{HF \code{sdk: docker}} gives this control instead of HF's opinionated
+    auto-SDKs --- we choose the base image, deps, and start command.
+\end{itemize}
+
+%=====================================================================
+\section{Prerequisites (one-time)}
+
+\begin{enumerate}
+  \item A \textbf{Hugging Face account} --- \url{https://huggingface.co/join}
+  \item \textbf{git} and \textbf{git-lfs} installed:
+\begin{lstlisting}[style=block]
+git lfs version    # should print a version; install git-lfs if not
+git lfs install    # one-time, enables the lfs filters for your user
+\end{lstlisting}
+  \item A \textbf{trained weight} at \code{backend/model/resnet50_best.pth} (the
+    served model; \code{CITYVISION_ARCH=ResNet50-UNet}).
+  \item An \textbf{HF access token} with \emph{write} permission (HF \rarr{} Settings
+    \rarr{} Access Tokens \rarr{} New token, role \textbf{Write}). Use it as the git
+    password when pushing (username = your HF username).
+  \item \emph{(Optional)} \textbf{Docker Desktop} to test locally first.
+\end{enumerate}
+
+%=====================================================================
+\section{Step 0 — Sanity-check locally with docker compose}
+
+Before touching the cloud, confirm the two-service setup works end to end:
+\begin{lstlisting}[style=block]
+docker compose up --build
+# open http://localhost:8501  (UI)   and   http://localhost:8000/docs  (API)
+\end{lstlisting}
+
+This proves the backend image builds and loads
+\code{backend/model/resnet50_best.pth}; the frontend image builds (no torch) and
+talks to the backend via \code{CITYVISION_API=http://backend:8000} (set in
+\code{docker-compose.yml}). Stop with \code{docker compose down}.
+
+%=====================================================================
+\section{Step 1 — Deploy the API Space}
+
+\subsection{Create the Space (web UI)}
+\begin{enumerate}
+  \item \url{https://huggingface.co/new-space}
+  \item \textbf{Owner}: you. \textbf{Space name}: \code{cityvision-api}.
+  \item \textbf{SDK}: \textbf{Docker} \rarr{} Blank/from scratch (not a template).
+  \item \textbf{Hardware}: start with \textbf{CPU basic (free)}; upgrade to paid
+    always-on later to avoid cold starts.
+  \item \textbf{Visibility}: Public. Create --- HF makes an (almost) empty git repo.
+\end{enumerate}
+
+\subsection{Populate the Space repo}
+The API Space needs, \textbf{at its repo root}:
+\begin{lstlisting}[style=block]
+Dockerfile          <- from deploy/hf/api/Dockerfile
+README.md           <- from deploy/hf/api/README.md (has the HF front-matter)
+cityvision/         <- shared package (constants + model defs)
+backend/            <- FastAPI app + backend/model/resnet50_best.pth (via LFS!)
+\end{lstlisting}
+\emph{Why these:} the API Dockerfile does \code{COPY cityvision/} and
+\code{COPY backend/}, sets \code{ENV CITYVISION_ARCH=ResNet50-UNet}, and serves
+\code{uvicorn backend.app:app} on 7860. It does \emph{not} need \code{frontend/},
+\code{data/}, \code{notebooks/}, \code{mlflow.db}.
+
+\begin{lstlisting}[style=block]
+# 1. Clone the empty Space repo (use your HF token as the password)
+git clone https://huggingface.co/spaces/<user>/cityvision-api
+cd cityvision-api
+
+# 2. Enable LFS and TRACK THE WEIGHTS *before* adding them
+git lfs install
+git lfs track "*.pth"          # creates/updates .gitattributes
+
+# 3. Copy the needed files from your project (adjust the source path)
+cp   /path/to/CityVision/deploy/hf/api/Dockerfile ./Dockerfile
+cp   /path/to/CityVision/deploy/hf/api/README.md  ./README.md
+cp -r /path/to/CityVision/cityvision ./cityvision
+cp -r /path/to/CityVision/backend    ./backend
+ls -lh backend/model/resnet50_best.pth   # ~157 MB
+
+# 4. Commit and push
+git add .gitattributes Dockerfile README.md cityvision backend
+git commit -m "Deploy CityVision prediction API (Docker Space)"
+git push
+\end{lstlisting}
+
+\noindent\textbf{Critical ordering:} run \code{git lfs track "*.pth"}
+\emph{before} \code{git add}-ing the weight. Adding a $>$10 MB file without LFS gets
+the push rejected. Verify with \code{git lfs ls-files} --- the \code{.pth} must be
+listed.
+
+\subsection{Watch the build \& test}
+Open the Space's \textbf{Logs} tab (you'll see \code{pip install torch}, the
+\code{COPY}s, then \code{uvicorn ... 0.0.0.0:7860}). Then:
+\begin{lstlisting}[style=block]
+curl https://<user>-cityvision-api.hf.space/health
+# {"status":"ok","arch":"ResNet50-UNet", ...}
+
+# Swagger UI:  https://<user>-cityvision-api.hf.space/docs
+
+curl -X POST "https://<user>-cityvision-api.hf.space/predict/image?format=overlay" \
+     -F "file=@some_street.png" -o overlay.png
+\end{lstlisting}
+\textbf{Note this URL} --- the App Space needs it.
+
+%=====================================================================
+\section{The port gotcha (read this)}
+
+\begin{tabularx}{\linewidth}{@{}Xccp{4.2cm}@{}}
+\toprule
+\textbf{Environment} & \textbf{Backend} & \textbf{Frontend} & \textbf{Set where} \\
+\midrule
+Local \code{docker-compose} & 8000 & 8501 & \code{docker/*.Dockerfile},
+\code{docker-compose.yml} \\
+\addlinespace
+\textbf{Hugging Face Space} & \textbf{7860} & \textbf{7860} &
+\code{deploy/hf/*/Dockerfile} + \code{app_port: 7860} in each \code{README.md} \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+HF routes public traffic only to \code{app_port} (7860). Each container serves a
+\textbf{single} service on 7860 --- the whole reason we run two Spaces. The
+\code{EXPOSE 7860} and \code{--port 7860} in the HF Dockerfiles must match
+\code{app_port} in the front-matter.
+
+%=====================================================================
+\section{Step 2 — Deploy the App Space}
+
+\subsection{Create it}
+Same as before, name it \code{cityvision}. SDK = \textbf{Docker}, CPU basic (free) is
+fine.
+
+\subsection{Populate \& point it at the API}
+At the repo root:
+\begin{lstlisting}[style=block]
+Dockerfile          <- from deploy/hf/app/Dockerfile
+README.md           <- from deploy/hf/app/README.md
+cityvision/         <- torch-free constants (palette/classes)
+frontend/           <- Streamlit UI
+data/samples/       <- committed sample images (demo works w/o dataset)
+\end{lstlisting}
+\begin{lstlisting}[style=block]
+git clone https://huggingface.co/spaces/<user>/cityvision
+cd cityvision
+git lfs install
+
+cp   /path/to/CityVision/deploy/hf/app/Dockerfile ./Dockerfile
+cp   /path/to/CityVision/deploy/hf/app/README.md  ./README.md
+cp -r /path/to/CityVision/cityvision   ./cityvision
+cp -r /path/to/CityVision/frontend     ./frontend
+mkdir -p data && cp -r /path/to/CityVision/data/samples ./data/samples
+
+git add .
+git commit -m "Deploy CityVision demo UI (Docker Space)"
+git push
+\end{lstlisting}
+
+\subsection{Set the API URL}
+The app finds the backend via \code{CITYVISION_API}. Two ways:
+\begin{itemize}
+  \item \textbf{Simplest:} edit the App Space's Dockerfile line
+    \code{ENV CITYVISION_API=https://daryael-cityvision-api.hf.space} to your API
+    URL, commit/push. (Already the default in \code{deploy/hf/app/Dockerfile}.)
+  \item \textbf{Cleaner:} Space \rarr{} Settings \rarr{} Variables and secrets \rarr{}
+    add a \textbf{Variable} \code{CITYVISION_API} =
+    \code{https://<user>-cityvision-api.hf.space}. Space env vars override the
+    Dockerfile \code{ENV}.
+\end{itemize}
+Open \code{https://huggingface.co/spaces/<user>/cityvision}, pick an image \rarr{} it
+calls your API and shows \textbf{real image \textperiodcentered{} real mask
+\textperiodcentered{} predicted mask}.
+
+\medskip
+\noindent The frontend tolerates a sleeping API: \code{wait_for_api()} polls
+\code{/health} through the $\sim$30--60 s cold-start window (503s) instead of
+failing.
+
+%=====================================================================
+\section{git-lfs — the model weight, in detail}
+
+\begin{itemize}
+  \item HF rejects files $>$ 10 MB unless tracked by LFS. \code{resnet50_best.pth} is
+    $\sim$157 MB.
+  \item \code{git lfs track "*.pth"} writes the \code{.gitattributes} line
+    \code{*.pth filter=lfs diff=lfs merge=lfs -text} that routes the weight through
+    LFS. \textbf{Commit \code{.gitattributes} in the same commit as the weight.}
+  \item Verify before pushing: \code{git lfs ls-files} must show the \code{.pth}.
+  \item If you committed the weight \emph{without} LFS: fastest fix is delete the
+    local clone, re-clone, \code{git lfs track} first, then re-copy and re-commit
+    (avoids history surgery).
+  \item The full Cityscapes dataset is \emph{not} deployed (gitignored + excluded in
+    \code{.dockerignore}); only \code{data/samples/} ships in the App image.
+\end{itemize}
+
+%=====================================================================
+\section{Hardware, cold starts, and "always-on"}
+
+\begin{itemize}
+  \item \textbf{Free CPU basic} Spaces \textbf{sleep after inactivity} and take
+    $\sim$30--60 s to wake ("cold start"), returning 503 meanwhile.
+  \item For a smooth demo, run the \textbf{API on paid always-on} CPU so the model
+    stays resident. The \textbf{App} can stay free (cheap cold start; it waits for
+    the API via \code{wait_for_api}).
+  \item Change in Space \rarr{} Settings \rarr{} Hardware. Keep the two Spaces
+    separate --- this is the flexibility the split buys you.
+\end{itemize}
+
+%=====================================================================
+\section{Configuration reference (env vars)}
+
+\begin{tabularx}{\linewidth}{@{}llXp{3.3cm}@{}}
+\toprule
+\textbf{Variable} & \textbf{Used by} & \textbf{Meaning} & \textbf{Default} \\
+\midrule
+\code{CITYVISION_API} & App & URL of the API Space & \code{http://backend:8000}
+(local) / your API URL (cloud) \\
+\addlinespace
+\code{CITYVISION_ARCH} & API & Which architecture to serve & \code{ResNet50-UNet} \\
+\addlinespace
+\code{CITYVISION_CHECKPOINT} & API & Explicit weight path (optional) & derived from
+arch \\
+\addlinespace
+\code{CITYVISION_MAX_UPLOAD_MB} & API & Upload size cap & \code{10} \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+Set these under Space \rarr{} Settings \rarr{} Variables and secrets. Use a
+\emph{secret} only for truly sensitive values --- none here are secret.
+
+%=====================================================================
+\section{Updating a deployment}
+
+HF redeploys on every push:
+\begin{lstlisting}[style=block]
+cd cityvision-api        # or cityvision
+# ...make changes / drop in a newly trained weight...
+git add -A && git commit -m "Update model / code" && git push
+# HF rebuilds the image and restarts the container automatically.
+\end{lstlisting}
+To ship a \textbf{new weight}: replace \code{backend/model/resnet50_best.pth} in the
+API Space repo, commit (LFS handles it), push. No code change needed.
+
+%=====================================================================
+\section{Troubleshooting}
+
+\begin{tabularx}{\linewidth}{@{}XX@{}}
+\toprule
+\textbf{Symptom} & \textbf{Likely cause / fix} \\
+\midrule
+Build fails on push: "file too large" & Weight not tracked by LFS.
+\code{git lfs track "*.pth"} \emph{before} adding; check \code{git lfs ls-files}. \\
+\addlinespace
+Builds but "no application on port" & Server not on \textbf{7860}. Ensure
+\code{--port 7860} in \code{CMD} and \code{app_port: 7860} in \code{README.md}. \\
+\addlinespace
+API \code{/health} OK but App can't connect & \code{CITYVISION_API} wrong/missing.
+Set it to \code{https://<user>-<space>.hf.space} (no trailing slash, https). \\
+\addlinespace
+Predictions 503 for a while then recover & API cold start. Expected on free tier;
+\code{wait_for_api} retries. Use always-on to avoid. \\
+\addlinespace
+\code{ModuleNotFoundError: cityvision} & \code{cityvision/} not copied into the Space
+repo root. \\
+\addlinespace
+Model file missing at runtime & \code{backend/model/*.pth} didn't ship (LFS pointer
+only, or not copied). Confirm real bytes. \\
+\addlinespace
+Wrong model served & \code{CITYVISION_ARCH} mismatch with the weight present. \\
+\bottomrule
+\end{tabularx}
+
+%=====================================================================
+\section{Deployment checklist}
+
+\noindent\textbf{API Space}
+\begin{itemize}[label=$\square$]
+  \item Space created, SDK = Docker, port 7860
+  \item \code{Dockerfile} (from \code{deploy/hf/api/}) + \code{README.md} at root
+  \item \code{cityvision/} and \code{backend/} copied in
+  \item \code{git lfs track "*.pth"} done \emph{before} adding the weight;
+    \code{.gitattributes} committed
+  \item \code{backend/model/resnet50_best.pth} present as real bytes
+    (\code{git lfs ls-files})
+  \item Build green; \code{/health} and \code{/docs} reachable
+  \item (optional) upgraded to always-on hardware
+\end{itemize}
+
+\noindent\textbf{App Space}
+\begin{itemize}[label=$\square$]
+  \item Space created, SDK = Docker, port 7860
+  \item \code{Dockerfile} (from \code{deploy/hf/app/}) + \code{README.md} at root
+  \item \code{cityvision/}, \code{frontend/}, \code{data/samples/} copied in
+  \item \code{CITYVISION_API} set to the API Space URL (Dockerfile ENV or Space
+    variable)
+  \item UI loads and shows image \textperiodcentered{} real mask
+    \textperiodcentered{} predicted mask
+\end{itemize}
+
+%=====================================================================
+\section*{TL;DR}
+Two Docker Spaces. Each is a git repo with a root \code{Dockerfile} +
+\code{README.md} (front-matter, \code{app_port: 7860}). API Space carries
+\code{cityvision/} + \code{backend/} + the LFS-tracked weight and serves FastAPI on
+7860. App Space carries \code{cityvision/} + \code{frontend/} + \code{data/samples/},
+serves Streamlit on 7860, and points at the API via \code{CITYVISION_API}. Test
+locally with \code{docker compose up}, then \code{git push} each Space.
+
+\vfill
+\noindent\footnotesize\color{rulegray}
+Source: \url{https://github.com/delnouty/cityvision-segmentation} \quad\textbar\quad
+Markdown version: \code{deploy/hf/DEPLOYMENT.md}
+
+\end{document}

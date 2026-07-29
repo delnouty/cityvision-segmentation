@@ -92,7 +92,12 @@ def _compute_sample_weights(dataset: CityscapesDataset) -> list:
 
 
 def create_dataloaders(
-    img_root, mask_root, batch_size=4, balanced=False, img_size=(512, 1024)
+    img_root,
+    mask_root,
+    batch_size=4,
+    balanced=False,
+    img_size=(512, 1024),
+    num_workers=0,
 ):
     """
     Args:
@@ -101,12 +106,25 @@ def create_dataloaders(
         img_size: (H, W) the images/masks are resized to. Higher resolution
                   helps small classes (traffic signs, bicycles) but uses more
                   GPU memory — reduce batch_size if you hit OOM.
+        num_workers: decoding a 2048x1024 Cityscapes PNG costs ~130 ms, so with
+                  the default 0 the main process spends ~6 min per epoch just
+                  loading data while the GPU idles. Set 4 to overlap the two.
+                  Workers are safe on Windows because CityscapesDataset lives in
+                  this module (spawn re-imports it), but they cannot be used
+                  from a plain script without an `if __name__ == "__main__"`
+                  guard.
     """
     train_pairs = get_cityscapes_pairs(img_root, mask_root, split="train")
     val_pairs = get_cityscapes_pairs(img_root, mask_root, split="val")
 
     train_ds = CityscapesDataset(train_pairs, img_size=img_size)
     val_ds = CityscapesDataset(val_pairs, img_size=img_size)
+
+    # Keeping workers alive between epochs avoids re-paying the spawn cost
+    # (~2 s each on Windows) 20 times over.
+    worker_kwargs = (
+        {"persistent_workers": True, "prefetch_factor": 2} if num_workers > 0 else {}
+    )
 
     if balanced:
         sample_weights = _compute_sample_weights(train_ds)
@@ -120,24 +138,27 @@ def create_dataloaders(
             train_ds,
             batch_size=batch_size,
             sampler=sampler,
-            num_workers=0,
+            num_workers=num_workers,
             pin_memory=True,
+            **worker_kwargs,
         )
     else:
         train_loader = DataLoader(
             train_ds,
             batch_size=batch_size,
             shuffle=True,
-            num_workers=0,
+            num_workers=num_workers,
             pin_memory=True,
+            **worker_kwargs,
         )
 
     val_loader = DataLoader(
         val_ds,
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=num_workers,
         pin_memory=True,
+        **worker_kwargs,
     )
 
     return train_loader, val_loader
