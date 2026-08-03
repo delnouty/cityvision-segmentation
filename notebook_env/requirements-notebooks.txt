@@ -1,0 +1,33 @@
+# CityVision — dependencies required to run the training notebooks.
+#
+# This is the notebook-only subset of the repo's requirements.txt, plus the
+# Jupyter stack (which requirements.txt does not declare). It deliberately
+# omits the API/UI/tooling deps the notebooks never import: fastapi, uvicorn,
+# python-multipart, streamlit, requests, pytest, httpx, black, flake8,
+# pre-commit, pip-tools.
+#
+# ── Install PyTorch FIRST, separately ─────────────────────────────────────────
+# torch/torchvision are accelerator-specific and must come from the PyTorch
+# index, otherwise pip installs the CPU build and training is unusably slow:
+#
+#   CUDA 12.6:  pip install torch==2.12.0 torchvision==0.27.0 --index-url https://download.pytorch.org/whl/cu126
+#   CPU only:   pip install torch==2.12.0 torchvision==0.27.0 --index-url https://download.pytorch.org/whl/cpu
+#
+# Then:         pip install -r requirements-notebooks.txt
+
+# Numerics & imaging
+numpy==2.2.6
+pillow==12.2.0
+
+# Experiment tracking — the notebooks log to sqlite:///mlflow.db
+mlflow==2.22.5
+
+# Visualization & progress
+matplotlib==3.10.9
+tqdm==4.68.2
+
+# Jupyter stack. ipywidgets is NOT optional: every notebook does
+# `from tqdm.notebook import tqdm`, which fails without it.
+jupyterlab==4.6.0
+ipykernel==7.3.0
+ipywidgets==8.1.8

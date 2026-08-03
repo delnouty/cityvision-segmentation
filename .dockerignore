@@ -17,3 +17,8 @@ notebooks
 results
 doc
 *.png
+
+# Manual checkpoint backups kept before a re-training run. Deliberately outside
+# backend/model/ so they are not baked into the images; excluded here as well so
+# they do not inflate the build context.
+model_backups
