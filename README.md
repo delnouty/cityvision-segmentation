@@ -45,15 +45,20 @@ Validation mIoU on Cityscapes (9-class), best checkpoint per architecture:
 | Architecture      | Encoder                | Val mIoU |
 |-------------------|------------------------|:--------:|
 | **ResNet50-UNet** | ResNet50 (pretrained)  | **0.816** ⭐ |
-| ResNet34-UNet     | ResNet34 (pretrained)  | 0.805 |
+| ResNet34-UNet     | ResNet34 (pretrained)  | 0.809 |
 | VGG16-UNet        | VGG16 (pretrained)     | 0.798 |
+| SegNet            | from scratch           | 0.718 |
 | UNet              | from scratch           | 0.684 |
-| SegNet            | from scratch           | _not trained_ |
 
 The pretrained encoders clearly outperform training from scratch. The backend
 serves the best model (**ResNet50-UNet**) by default. Metrics are tracked in
 MLflow; light data augmentation (h-flip + colour jitter) is compared in
-`notebooks/training_augmented.ipynb`.
+`notebooks/training_augmented.ipynb` (UNet + augmentation: 0.682).
+
+> **Not comparable to published Cityscapes benchmarks.** Those score 19 classes
+> at full resolution; this project remaps to 9 classes at 512×1024, which is a
+> substantially easier task. The numbers above are only meaningful *relative to
+> each other*.
 
 ---
 
@@ -65,18 +70,46 @@ src/            training scripts (UNet, VGG16-UNet, SegNet, ResNet34/50-UNet) + 
 backend/        FastAPI app (app.py), inference (inference.py), model/ (checkpoints)
 frontend/       Streamlit UI (streamlit_app.py) + helpers (utils.py)
 scripts/        make_samples.py (build data/samples), visualize_best.py (qualitative eval)
-tests/          pytest suite (backend + frontend)
+tests/          pytest suite (backend + frontend + model/notebook contract)
 docker/         backend/frontend Dockerfiles
-notebooks/      training_comparison.ipynb, training_augmented.ipynb
+notebooks/      training_comparison.ipynb, training_augmented.ipynb, training_segnet.ipynb
+notebook_env/   self-contained bundle to run the notebooks (see its README)
 doc/            technical note
 data/samples/   small committed sample set used by the frontend (full dataset is gitignored)
 ```
 
 ---
 
-## Quick start (Docker — recommended)
+## Step 1 — get the model weights (required)
 
-Requires Docker Desktop running. From the project root:
+Checkpoints are **not** in the repository (`*.pth` is gitignored), so a fresh
+clone has none and the backend refuses to start with
+`RuntimeError: No model checkpoints found`. Download the served model from the
+release — it is attached there, so it does not inflate the repository:
+
+```bash
+mkdir -p backend/model
+curl -L -o backend/model/resnet50_best.pth \
+  https://github.com/delnouty/cityvision-segmentation/releases/download/v2.2.0/resnet50_best.pth
+```
+
+```powershell
+# Windows PowerShell
+New-Item -ItemType Directory -Force backend\model | Out-Null
+curl -L -o backend\model\resnet50_best.pth `
+  https://github.com/delnouty/cityvision-segmentation/releases/download/v2.2.0/resnet50_best.pth
+```
+
+That is 156 MiB and the only checkpoint needed to run the API — it serves
+**ResNet50-UNet** by default (`CITYVISION_ARCH=ResNet50-UNet`). All releases:
+[releases](https://github.com/delnouty/cityvision-segmentation/releases).
+
+---
+
+## Step 2 — Quick start (Docker — recommended)
+
+Requires Docker Desktop running, and the weight from step 1 in place. From the
+project root:
 
 ```bash
 docker compose up --build -d      # first run builds the images (downloads PyTorch)
@@ -97,6 +130,9 @@ See [docker/](docker/) and [doc/docker_instructions.tex](doc/docker_instructions
 ---
 
 ## Run locally (without Docker)
+
+Needs the weight from [step 1](#step-1--get-the-model-weights-required) as well —
+the API loads it at startup either way.
 
 ```bash
 python -m venv .venv && . .venv/Scripts/activate   # Windows; use bin/activate on Linux/macOS
@@ -147,6 +183,37 @@ Config via env vars: `CITYVISION_ARCH` / `CITYVISION_CHECKPOINT` (which model to
 
 ## Training
 
+### Get the dataset first
+
+Training needs the full Cityscapes set, which is **not** in the repository. It
+requires a free account at [cityscapes-dataset.com](https://www.cityscapes-dataset.com/downloads/);
+download `leftImg8bit_trainvaltest.zip` (11 GB) and `gtFine_trainvaltest.zip`
+(241 MB), then unpack them into this exact layout — the paths are hardcoded in
+the training scripts' `img_root` / `mask_root` and in the notebooks' `CONFIG` cell:
+
+```
+data/cityscapes/
+├── P8_Cityscapes_leftImg8bit_trainvaltest/
+│   └── leftImg8bit/{train,val,test}/<city>/*_leftImg8bit.png
+└── P8_Cityscapes_gtFine_trainvaltest/
+    └── gtFine/{train,val,test}/<city>/*_gtFine_labelIds.png
+```
+
+The `P8_…` prefixes are part of the expected path, not decoration. Verify with:
+
+```bash
+python src/dataloader.py
+```
+
+Expect `Train batches: 744 | Val batches: 125` at the default batch size of 4 —
+that is 2975 train and 500 val pairs. Any `WARNING: mask not found` line means an
+image has no matching mask, usually a half-finished unpack.
+
+This check takes a couple of minutes: its `__main__` uses `balanced=True`, which
+opens all 2975 masks to compute the class-balanced sampling weights.
+
+### Run a training
+
 Each architecture has a script under `src/` (models come from `cityvision.models`):
 
 ```bash
@@ -164,7 +231,30 @@ each saves its best checkpoint to `backend/model/`. View runs:
 python run_mlflow.py              # MLflow UI
 ```
 
-The notebooks (`notebooks/`) reproduce training with and without light data augmentation.
+### Notebooks
+
+`notebooks/` reproduces the same training interactively: architecture comparison,
+light data augmentation, and a dedicated SegNet run that documents the data
+generator (streaming, class-balanced sampling, dataloader throughput).
+
+They need the Jupyter stack, which `requirements.txt` does **not** declare — every
+notebook does `from tqdm.notebook import tqdm`, which fails without `ipywidgets`.
+Either install it directly, or use the self-contained bundle:
+
+```bash
+pip install -r notebook_env/requirements-notebooks.txt
+jupyter lab notebooks/
+```
+
+[`notebook_env/`](notebook_env/) holds copies of the notebooks plus the only
+module they import, so the folder runs on its own — see
+[its README](notebook_env/README.md). Keep the copies fresh with
+`notebook_env/sync.ps1`.
+
+Each notebook checks its GPU budget before training (peak memory, competing GPU
+processes) and verifies that its inline architectures still match
+`cityvision.models`, so a checkpoint trained there stays loadable by the API.
+
 Qualitative check of the best model:
 
 ```bash
@@ -190,5 +280,15 @@ CI (GitHub Actions) runs lint + tests on every push/PR ([.github/workflows/ci.ym
 
 - The **full Cityscapes dataset is gitignored** (large). Only a small curated sample set
   (`data/samples/`, 2 image+mask pairs per city, built by `scripts/make_samples.py`) is
-  committed so the frontend/demo works without it.
+  committed so the frontend/demo works without it. To train, fetch the dataset as
+  described under [Training](#training).
 - Model checkpoints (`*.pth`) are gitignored; the backend loads them from `backend/model/`.
+  Get the served one from the [latest release](https://github.com/delnouty/cityvision-segmentation/releases)
+  (see [step 1](#step-1--get-the-model-weights-required)) — release assets do not count
+  towards the repository size.
+- Which checkpoint gets served is decided by `select_checkpoint()` in
+  [backend/inference.py](backend/inference.py), in this order: `CITYVISION_CHECKPOINT`
+  (explicit path) → `CITYVISION_ARCH` (architecture name) → best run recorded in
+  `mlflow.db` → first available by quality priority. The deployed API pins
+  `CITYVISION_ARCH=ResNet50-UNet`, so a new local training run cannot silently change
+  what production serves.
