@@ -66,12 +66,20 @@ class CityscapesDataset(Dataset):
 
 def _compute_sample_weights(dataset: CityscapesDataset) -> list:
     """
-    Per-image sampling weight = sum of class_weights for every unique
-    remapped class present in that mask.
+    Per-image sampling weight = the highest class_weight among the classes
+    present in that mask.
 
-    Images containing traffic_sign or bicycle (w=3.0) or person (w=2.5) are
-    sampled more often than background-only frames (w=0.5), addressing class
-    imbalance at the batch level.
+    Note: in Cityscapes nearly every frame contains at least a few pixels of
+    traffic_sign or bicycle (weight 3.0), so almost all images end up with the
+    same weight and the sampler behaves close to uniform. Measured enrichment
+    of rare-class pixels: x1.02 (a 400-image sample). Summing the weights
+    instead of taking the maximum only reaches x1.08 — both look at class
+    *presence*, not at how much of the frame a rare class covers. Weighting by
+    rare-class *area* reaches x2.2-2.8, but that changes training behaviour and
+    would require retraining, so it is deliberately not done here.
+
+    Class imbalance is handled instead by the weighted CE + Dice loss in the
+    training scripts, which penalises rare-class errors per pixel.
     """
     print(f"Computing class-balanced sample weights for {len(dataset)} images...")
     weights = []
