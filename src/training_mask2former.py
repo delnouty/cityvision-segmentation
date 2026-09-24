@@ -18,6 +18,7 @@ import argparse
 import math
 import os
 import sys
+from itertools import islice
 
 import mlflow
 import numpy as np
@@ -126,11 +127,13 @@ def poly_with_warmup(total_steps, warmup_steps, power=0.9):
 
 
 def train_one_epoch(
-    model, loader, optimizer, scheduler, device, accum_steps=1, clip=0.01
+    model, loader, optimizer, scheduler, device, accum_steps=1, clip=0.01, on_step=None
 ):
     """
     accum_steps: gradients of that many batches are summed before each
                  optimizer step (effective batch = batch_size x accum_steps).
+    on_step:     optional callable run after each optimizer step (EoMT uses it
+                 for mask annealing).
     """
     model.train()
     total_loss = 0.0
@@ -154,6 +157,8 @@ def train_one_epoch(
             optimizer.step()
             scheduler.step()
             optimizer.zero_grad()
+            if on_step is not None:
+                on_step()
 
         total_loss += outputs.loss.item()
         with torch.no_grad():
@@ -193,6 +198,19 @@ def validate(model, loader, device):
 # ============================================================
 # 5. MAIN
 # ============================================================
+
+
+class _Limited:
+    """First n batches of a loader (for --limit quick runs)."""
+
+    def __init__(self, loader, n):
+        self.loader, self.n = loader, min(n, len(loader))
+
+    def __iter__(self):
+        return islice(iter(self.loader), self.n)
+
+    def __len__(self):
+        return self.n
 
 
 def parse_args():
@@ -254,18 +272,6 @@ def main():
         num_workers=args.num_workers,
     )
     if args.limit:
-        from itertools import islice
-
-        class _Limited:
-            def __init__(self, loader, n):
-                self.loader, self.n = loader, min(n, len(loader))
-
-            def __iter__(self):
-                return islice(iter(self.loader), self.n)
-
-            def __len__(self):
-                return self.n
-
         train_loader = _Limited(train_loader, args.limit)
         val_loader = _Limited(val_loader, args.limit)
 
