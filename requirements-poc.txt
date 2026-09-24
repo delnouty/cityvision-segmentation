@@ -1,0 +1,6 @@
+# Extra dependencies for the Mask2Former / EoMT proof of concept (branch
+# poc-mask2former). Kept separate from requirements.txt so the deployed
+# API/app images are unchanged. Install on top of the main environment:
+#   pip install -r requirements-poc.txt
+transformers==5.17.0
+scipy==1.15.3   # Hungarian matching in the Mask2Former loss
