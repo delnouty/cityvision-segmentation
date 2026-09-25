@@ -1,0 +1,606 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,urlcolor=blue,linkcolor=black,citecolor=black]{hyperref}
+\usepackage{parskip}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\1}{\mathbb{1}}
+\newcommand{\sg}{\sigma}
+\newcommand{\nulc}{\varnothing}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\softmax}{softmax}
+\DeclareMathOperator{\LN}{LN}
+\DeclareMathOperator{\MLP}{MLP}
+\DeclareMathOperator{\BCE}{BCE}
+
+\title{\textbf{CityVision --- Mathematical Models}\\[2pt]
+\large Baseline (ResNet50-UNet) and the two proof-of-concept solutions\\
+(Mask2Former, EoMT)}
+\author{Urban Scene Semantic Segmentation}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent\sloppy
+This note states the segmentation problem solved in the project and gives,
+for each of the three models, the mathematical formulation actually used:
+architecture, training objective and inference rule. Hyper-parameters are the
+values used in the training scripts (\texttt{src/training\_resnet50.py},
+\texttt{src/training\_mask2former.py}, \texttt{src/training\_eomt.py}).
+Formulations taken from the original papers are cited; project-specific
+adaptations are marked \emph{(project adaptation)}.
+
+\tableofcontents
+
+% =====================================================================
+\section{Problem statement}
+% =====================================================================
+
+\subsection{Data}
+
+Let $I \in \R^{3\times H\times W}$ be an RGB street-scene image and
+$\Omega = \{1,\dots,H\}\times\{1,\dots,W\}$ its pixel grid. All images are
+resized to $H\times W = 512\times1024$ (bilinear for images, nearest-neighbour
+for labels) and normalised channel-wise with the ImageNet statistics
+$\mu = (0.485, 0.456, 0.406)$, $s = (0.229, 0.224, 0.225)$.
+
+The dataset is Cityscapes \cite{cordts2016}:
+$\mathcal{D}_{\text{train}}$ ($2\,975$ images) and
+$\mathcal{D}_{\text{val}}$ ($500$ images), official splits. Each image comes
+with a label map $r : \Omega \to \mathcal{L}$ of raw Cityscapes
+\emph{labelIds}. The project uses $C = 9$ classes
+\[
+\begin{aligned}
+\mathcal{C} = \{\,&0{:}\ \text{background},\ 1{:}\ \text{road},\ 2{:}\ \text{building},\
+3{:}\ \text{vegetation},\ 4{:}\ \text{sky},\\
+&5{:}\ \text{person},\ 6{:}\ \text{car},\ 7{:}\ \text{traffic sign},\ 8{:}\ \text{bicycle}\,\},
+\end{aligned}
+\]
+obtained with the remapping $\varphi : \mathcal{L}\to\mathcal{C}$
+\[
+\begin{aligned}
+&\varphi(7)=1,\ \varphi(11)=2,\ \varphi(21)=3,\ \varphi(23)=4,\ \varphi(24)=5,\
+\varphi(26)=6,\ \varphi(20)=7,\ \varphi(33)=8,\\
+&\varphi(\ell)=0 \ \text{ for every other labelId } \ell,
+\end{aligned}
+\]
+so that the target is $y = \varphi\circ r : \Omega\to\mathcal{C}$. Every
+pixel is labelled (unlabelled / void pixels belong to \emph{background}).
+
+\subsection{Task}
+
+Semantic segmentation: learn a function
+\[
+f_\theta : \R^{3\times H\times W} \longrightarrow \mathcal{C}^{H\times W},
+\qquad \hat y = f_\theta(I),
+\]
+that assigns one class to every pixel. The parameters $\theta$ are obtained by
+(regularised) empirical risk minimisation on $\mathcal{D}_{\text{train}}$,
+\[
+\theta^\star = \argmin_\theta\ \frac{1}{|\mathcal{D}_{\text{train}}|}
+\sum_{(I,y)\in\mathcal{D}_{\text{train}}} \mathcal{L}\big(g_\theta(I),\,y\big),
+\]
+where $g_\theta$ is the model's differentiable output (per-pixel scores for the
+baseline, a set of masks for the two transformers) and $\mathcal{L}$ a
+model-specific surrogate loss (Sections~\ref{sec:baseline}--\ref{sec:eomt}).
+
+\subsection{Evaluation criterion}
+
+Performance is measured on $\mathcal{D}_{\text{val}}$ by the mean
+Intersection-over-Union. With the confusion matrix accumulated over all
+validation pixels,
+\[
+N_{ij} = \sum_{(I,y)\in\mathcal{D}_{\text{val}}}\ \sum_{x\in\Omega}
+\1\big[y(x)=i,\ \hat y(x)=j\big],
+\]
+\[
+\mathrm{IoU}_c = \frac{N_{cc}}{\sum_j N_{cj} + \sum_i N_{ic} - N_{cc}},
+\qquad
+\mathrm{mIoU} = \frac{1}{C}\sum_{c=0}^{C-1}\mathrm{IoU}_c,
+\qquad
+\mathrm{PA} = \frac{\sum_c N_{cc}}{\sum_{i,j}N_{ij}} .
+\]
+The goal of the proof of concept is to show that a recent model reaches a
+higher mIoU than the baseline under the same data, resolution and metric.
+
+% =====================================================================
+\section{Baseline: ResNet50-UNet}\label{sec:baseline}
+% =====================================================================
+
+\subsection{Principle}
+
+Dense per-pixel classification with an encoder--decoder CNN: a U-Net
+\cite{ronneberger2015} whose encoder is a ResNet-50 \cite{he2016} pretrained
+on ImageNet.
+
+\subsection{Architecture}
+
+\paragraph{Encoder.} The ResNet-50 stages produce feature maps
+\[
+s_0 \in \R^{64\times\frac H2\times\frac W2},\
+s_1 \in \R^{256\times\frac H4\times\frac W4},\
+s_2 \in \R^{512\times\frac H8\times\frac W8},\
+s_3 \in \R^{1024\times\frac H{16}\times\frac W{16}},\
+s_4 \in \R^{2048\times\frac H{32}\times\frac W{32}},
+\]
+each stage being a stack of residual bottleneck blocks
+$h \mapsto \mathrm{ReLU}\big(h + \mathcal{F}(h)\big)$.
+
+\paragraph{Decoder.} With $u_4 = s_4$, for $k = 4,3,2,1$:
+\[
+u_{k-1} = \mathcal{B}_k\Big(\big[\,\mathrm{Up}_k(u_k)\ \big\|\ s_{k-1}\big]\Big),
+\qquad
+\mathcal{B}(h) = \mathrm{ReLU}\big(\mathrm{BN}(W_2 * \mathrm{ReLU}(\mathrm{BN}(W_1 * h)))\big),
+\]
+where $\mathrm{Up}_k$ is a $2\times2$ transposed convolution of stride 2,
+$\|$ is channel concatenation (skip connection) and $W_1,W_2$ are
+$3\times3$ convolutions. A final transposed convolution restores full
+resolution and a $1\times1$ convolution gives the logits
+\[
+z = g_\theta(I) \in \R^{C\times H\times W},
+\qquad
+p_c(x) = \softmax_c\big(z(x)\big).
+\]
+
+\subsection{Training objective}
+
+Weighted cross-entropy plus weighted soft Dice. Class weights
+$w = (0.5,\,1,\,1,\,1,\,1,\,2.5,\,1,\,3,\,3)$ up-weight the rare classes
+(person, traffic sign, bicycle). For a batch $\mathcal{B}$ of pixels,
+\[
+\mathcal{L}_{\text{CE}} =
+-\frac{\sum_{x\in\mathcal{B}} w_{y(x)}\log p_{y(x)}(x)}
+      {\sum_{x\in\mathcal{B}} w_{y(x)}},
+\]
+\[
+D_c = \frac{2\sum_{x} p_c(x)\,\1[y(x)=c] + \epsilon}
+           {\sum_{x} p_c(x) + \sum_x \1[y(x)=c] + \epsilon},
+\qquad
+\mathcal{L}_{\text{Dice}} = 1 - \frac{\sum_c \tilde w_c D_c}{\sum_c \tilde w_c},
+\quad
+\tilde w_c = \frac{C\,w_c}{\sum_k w_k},\ \epsilon=1,
+\]
+\[
+\mathcal{L}_{\text{base}} = \mathcal{L}_{\text{CE}} + \mathcal{L}_{\text{Dice}} .
+\]
+Cross-entropy optimises per-pixel accuracy; the Dice term
+\cite{milletari2016} is a differentiable surrogate of the per-class overlap
+and counteracts the dominance of large classes.
+
+\subsection{Inference}
+\[
+\hat y(x) = \argmax_{c\in\mathcal{C}} z_c(x).
+\]
+
+% =====================================================================
+\section{Solution 1: Mask2Former}\label{sec:m2f}
+% =====================================================================
+
+\subsection{Principle}
+
+Mask2Former \cite{cheng2022} replaces per-pixel classification by
+\emph{mask classification}: the model predicts a fixed-size set of $N$ pairs
+$\{(\bm p_q, m_q)\}_{q=1}^N$, where $m_q:\Omega\to\R$ is a binary-mask logit
+map and $\bm p_q\in\Delta^{C}$ a probability vector over the $C$ classes plus a
+``no object'' class $\nulc$. The same architecture handles semantic, instance
+and panoptic segmentation; here it is used for semantic segmentation.
+
+\subsection{Architecture}
+
+\paragraph{Backbone.} Swin-Tiny \cite{liu2021} (embedding dimension 96,
+depths $(2,2,6,2)$, window $7$) gives multi-scale features
+$F_s$ at strides $s\in\{4,8,16,32\}$.
+
+\paragraph{Pixel decoder.} Six multi-scale deformable-attention layers
+\cite{zhu2021} refine $\{F_8,F_{16},F_{32}\}$; an FPN-style fusion with $F_4$
+produces the per-pixel embedding
+\[
+\mathcal{E} \in \R^{D\times\frac H4\times\frac W4},\qquad D = 256 .
+\]
+
+\paragraph{Transformer decoder with masked attention.} $N=100$ learnable
+queries $X_0\in\R^{N\times D}$ are refined by $9$ layers; layer $l$ attends
+to one scale $F_{s(l)}$ (round-robin over strides $32,16,8$). Each layer
+applies masked cross-attention, self-attention and a feed-forward network.
+The key operation is masked attention:
+\[
+X_l = \softmax\!\Big(\mathcal{M}_{l-1} + \frac{Q_l K_l^\top}{\sqrt{d}}\Big)V_l + X_{l-1},
+\qquad
+\mathcal{M}_{l-1}(q,x) =
+\begin{cases}
+0 & \text{if } \sg\big(m^{(l-1)}_q(x)\big) \ge 0.5,\\
+-\infty & \text{otherwise},
+\end{cases}
+\]
+with $Q_l = X_{l-1}W_Q$, $K_l = F_{s(l)}W_K$, $V_l = F_{s(l)}W_V$ and
+$m^{(l-1)}_q$ the mask predicted by the previous layer, resized to the
+resolution of $F_{s(l)}$. Each query therefore only attends to the region it
+currently predicts, which speeds up convergence \cite{cheng2022}.
+
+\paragraph{Prediction heads.} After every layer $l = 0,\dots,9$ (initial
+queries and the 9 decoder layers):
+\[
+\bm p^{(l)}_q = \softmax\big(W_{\text{cls}}\, X_{l,q}\big) \in \Delta^{C},
+\qquad
+m^{(l)}_q(x) = \big\langle \MLP(X_{l,q}),\ \mathcal{E}(x)\big\rangle,
+\quad x\in\Omega_{/4},
+\]
+i.e.\ each mask is the dot product of a query embedding with the per-pixel
+embedding, at $1/4$ resolution.
+
+\subsection{Training objective}
+
+\paragraph{Targets as a set.} The semantic label map $y$ is converted into a
+set of $K\le C$ ground-truth segments, one per class present in the image
+\emph{(implemented in \texttt{to\_mask2former\_targets})}:
+\[
+\mathcal{G}(y) = \{(c_j, g_j)\}_{j=1}^{K},\qquad
+g_j(x) = \1[y(x)=c_j].
+\]
+
+\paragraph{Bipartite matching.} Predictions and targets are matched by the
+Hungarian algorithm \cite{kuhn1955}:
+\[
+\hat\sigma = \argmin_{\sigma:\{1..K\}\hookrightarrow\{1..N\}}\
+\sum_{j=1}^{K}
+\Big[-\lambda_{\text{cls}}\, p_{\sigma(j)}(c_j)
++ \lambda_{\text{mask}}\,\BCE\big(m_{\sigma(j)}, g_j\big)
++ \lambda_{\text{dice}}\,\mathrm{Dice}\big(m_{\sigma(j)}, g_j\big)\Big],
+\]
+where the mask costs are evaluated on $12\,544$ points sampled uniformly in
+the image, and
+\[
+\BCE(m,g) = -\frac1{|P|}\sum_{x\in P}\big[g(x)\log\sg(m(x)) + (1-g(x))\log(1-\sg(m(x)))\big],
+\]
+\[
+\mathrm{Dice}(m,g) = 1 - \frac{2\sum_{x\in P}\sg(m(x))\,g(x) + 1}
+                          {\sum_{x\in P}\sg(m(x)) + \sum_{x\in P}g(x) + 1}.
+\]
+
+\paragraph{Loss.} Given $\hat\sigma$, unmatched queries are assigned to
+$\nulc$. For each prediction stage $l$,
+\[
+\mathcal{L}^{(l)} =
+\lambda_{\text{cls}}\,\mathcal{L}_{\text{cls}}^{(l)}
++ \lambda_{\text{mask}}\,\frac1K\sum_{j}\BCE\big(m^{(l)}_{\hat\sigma(j)}, g_j\big)
++ \lambda_{\text{dice}}\,\frac1K\sum_{j}\mathrm{Dice}\big(m^{(l)}_{\hat\sigma(j)}, g_j\big),
+\]
+\[
+\mathcal{L}_{\text{cls}}^{(l)} = -\frac{\sum_{q=1}^{N}\omega_q\log p^{(l)}_q(t_q)}{\sum_q\omega_q},
+\qquad
+t_q =
+\begin{cases}
+c_j & q=\hat\sigma(j),\\
+\nulc & \text{otherwise},
+\end{cases}
+\qquad
+\omega_q =
+\begin{cases}
+1 & t_q\ne\nulc,\\
+0.1 & t_q=\nulc,
+\end{cases}
+\]
+and the total loss sums all stages (deep supervision):
+\[
+\mathcal{L}_{\text{M2F}} = \sum_{l=0}^{9}\mathcal{L}^{(l)},
+\qquad
+\lambda_{\text{cls}}=2,\ \lambda_{\text{mask}}=5,\ \lambda_{\text{dice}}=5 .
+\]
+In the loss, the mask terms use $12\,544$ points per mask chosen by
+importance sampling: $3\times12\,544$ random candidates, of which the $75\%$
+with the most uncertain prediction (smallest $|m(x)|$) are kept, completed by
+$25\%$ uniform points \cite{cheng2022}.
+
+\subsection{Semantic inference}
+
+Each pixel's class score is the sum over queries of ``class probability
+$\times$ mask probability'', the $\nulc$ class being discarded:
+\[
+S_c(x) = \sum_{q=1}^{N} p^{(9)}_q(c)\ \sg\big(m^{(9)}_q(x)\big),\quad c\in\mathcal{C},
+\qquad
+\hat y(x) = \argmax_{c\in\mathcal{C}} \tilde S_c(x),
+\]
+where $\tilde S$ is $S$ bilinearly upsampled from $\frac H4\times\frac W4$ to
+$H\times W$ (\texttt{semantic\_logits}).
+
+% =====================================================================
+\section{Solution 2: EoMT (Encoder-only Mask Transformer)}\label{sec:eomt}
+% =====================================================================
+
+\subsection{Principle}
+
+EoMT \cite{kerssies2025} keeps Mask2Former's mask classification and loss but
+removes the pixel decoder and the transformer decoder. A plain Vision
+Transformer, pretrained at scale (DINOv2 \cite{oquab2023}), processes image
+patches and segmentation queries \emph{jointly} in its last blocks. Masked
+attention is used only during training and is progressively switched off
+(\emph{mask annealing}), so that inference is a plain ViT forward pass.
+
+\subsection{Architecture}
+
+\paragraph{Tokens.} The image is cut into non-overlapping patches of size
+$P=16$, giving $N_p = \frac HP\cdot\frac WP = 32\times64 = 2\,048$ patches
+$\bm x_i\in\R^{3P^2}$:
+\[
+\bm t_i = E\,\bm x_i + \bm e^{\text{pos}}_i \in \R^{D},\qquad D=768,
+\]
+preceded by one class token and $4$ register tokens.
+
+\paragraph{Position embeddings for $512\times1024$ \emph{(project adaptation)}.}
+The pretrained checkpoint has a square grid of $40\times40$ position
+embeddings (input $640\times640$). They are resampled to the $32\times64$
+grid by bicubic interpolation,
+\[
+\bm e^{\text{pos}} \leftarrow \mathrm{Bicubic}_{40\times40\to32\times64}\big(\bm e^{\text{pos}}\big),
+\]
+the standard way of changing a ViT's input resolution.
+
+\paragraph{Encoder blocks.} $L=12$ standard pre-norm ViT blocks with
+LayerScale:
+\[
+h' = h + \bm\gamma_1\odot\mathrm{MHSA}\big(\LN(h);\,A\big),\qquad
+h'' = h' + \bm\gamma_2\odot\MLP\big(\LN(h')\big),
+\]
+with $12$ heads and $A$ an optional attention mask (below).
+
+\paragraph{Queries.} Before block $L-L_2+1$ (here $L_2 = 3$, i.e.\ before
+block $10$), $N=200$ learnable queries $Q\in\R^{N\times D}$ are prepended to
+the token sequence; the last $L_2$ blocks process queries and patches jointly
+through ordinary self-attention.
+
+\paragraph{Mask module.} From a normalised token sequence, with query tokens
+$\bm q_n$ and patch tokens reshaped into $T\in\R^{D\times\frac H{16}\times\frac W{16}}$:
+\[
+\bm p_n = \softmax\big(W_{\text{cls}}\,\bm q_n\big)\in\Delta^{C},
+\qquad
+m_n(x) = \big\langle \MLP_3(\bm q_n),\ \mathcal{U}(T)(x)\big\rangle,
+\quad x\in\Omega_{/4},
+\]
+where $\MLP_3$ is a 3-layer perceptron and $\mathcal{U}$ two upscaling blocks
+($2\times2$ transposed convolution of stride 2, GELU, $3\times3$ depthwise
+convolution, layer normalisation) taking $T$ from $1/16$ to $1/4$ resolution.
+
+\paragraph{Masked attention in the last blocks (training).} Before each of the
+last $L_2$ blocks $b$, the mask module predicts $m^{(b)}_n$; attention from
+query $n$ to patch $i$ is allowed only inside its predicted mask:
+\[
+A^{(b)}(n,i) =
+\begin{cases}
+1 & \text{if } \bar m^{(b)}_n(i) > 0 \quad\text{or}\quad \xi_n > P_b(t),\\
+0 & \text{otherwise},
+\end{cases}
+\qquad \xi_n\sim\mathcal{U}(0,1),
+\]
+where $\bar m^{(b)}_n$ is the mask logit resized to the $32\times64$ patch
+grid; all other token pairs are unrestricted. $P_b(t)$ is the probability of
+keeping the mask for block $b$ at optimiser step $t$.
+
+\paragraph{Mask annealing.} Following the official code \cite{kerssies2025},
+$P_b$ decays from 1 to 0 with a polynomial schedule, block by block:
+\[
+P_b(t) =
+\begin{cases}
+1 & t < t^{s}_b,\\[2pt]
+\Big(1 - \dfrac{t - t^{s}_b}{t^{e}_b - t^{s}_b}\Big)^{0.9} & t^{s}_b \le t < t^{e}_b,\\[8pt]
+0 & t \ge t^{e}_b,
+\end{cases}
+\qquad
+t^{s}_b = (b+1)\,u,\quad t^{e}_b = (b+2)\,u,\quad u = \Big\lfloor\frac{T}{L_2+2}\Big\rfloor,
+\]
+$b = 0,\dots,L_2-1$. With $T=14\,880$ optimiser steps, $u = 2\,976$: block
+$0$ anneals over steps $2\,976$--$5\,952$, block $1$ over $5\,952$--$8\,928$,
+block $2$ over $8\,928$--$11\,904$, and the last fifth of training is
+mask-free \emph{(proportions of the official Cityscapes configuration,
+rescaled to our number of steps)}.
+
+\subsection{Training objective}
+
+Identical in form to Mask2Former (set targets, Hungarian matching, weighted
+classification + BCE + Dice with the same $\lambda$'s, $\nulc$ weight $0.1$
+and point sampling), summed over the predictions made before each of the
+last $L_2$ blocks and after the final block:
+\[
+\mathcal{L}_{\text{EoMT}} = \sum_{b=0}^{L_2}\mathcal{L}^{(b)} .
+\]
+
+\subsection{Semantic inference}
+
+At inference $P_b = 0$ for all $b$: no intermediate masks are computed and the
+network reduces to a ViT forward pass followed by the mask module on the final
+tokens. The semantic map is obtained exactly as for Mask2Former:
+\[
+S_c(x) = \sum_{n=1}^{N} p_n(c)\ \sg\big(m_n(x)\big),
+\qquad
+\hat y(x) = \argmax_{c\in\mathcal{C}} \tilde S_c(x).
+\]
+All validation scores of EoMT reported in the project are computed in this
+mask-free mode, i.e.\ as the model is deployed.
+
+% =====================================================================
+\section{Optimisation}\label{sec:optim}
+% =====================================================================
+
+\subsection{Common elements}
+
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Sampler.} Images are drawn by a weighted random sampler with
+  per-image weight $\max_{c\in y(\Omega)\setminus\{0\}} w_c$ ($w_0$ if the
+  image contains background only), with the class weights $w$ of
+  Section~\ref{sec:baseline}.
+\item \textbf{Effective batch} $B=4$ for all models; for the two transformers,
+  batches of 2 with gradient accumulation over 2 steps:
+  \[
+  \bm g_t = \tfrac12\big(\nabla_\theta\mathcal{L}(\mathcal{B}_{2t-1})
+          + \nabla_\theta\mathcal{L}(\mathcal{B}_{2t})\big).
+  \]
+\item \textbf{Budget.} 20 epochs; early stopping with patience 5 on
+  validation mIoU; the checkpoint with the best validation mIoU is kept.
+\item \textbf{No data augmentation} for any model, so that the comparison
+  isolates the effect of the architecture.
+\end{itemize}
+
+\subsection{Baseline}
+
+Adam \cite{kingma2015} with a constant learning rate
+$\eta_{\text{enc}} = 10^{-5}$ for the pretrained encoder and
+$\eta_{\text{dec}} = 10^{-4}$ for the decoder; fp32.
+
+\subsection{Mask2Former}
+
+AdamW \cite{loshchilov2019} (decoupled weight decay $\lambda=0.05$):
+\[
+\theta_{t+1} = \theta_t - \eta_t\Big(\frac{\hat{\bm m}_t}{\sqrt{\hat{\bm v}_t}+\epsilon} + \lambda\,\theta_t\Big),
+\]
+with base rates $\eta^0_{\text{backbone}} = 10^{-5}$ and $\eta^0 = 10^{-4}$
+elsewhere, linear warm-up then polynomial decay:
+\[
+\eta_t = \eta^0 f(t),\qquad
+f(t) =
+\begin{cases}
+10^{-3} + (1-10^{-3})\,\dfrac{t}{t_w} & t < t_w,\\[8pt]
+\Big(1-\dfrac{t-t_w}{T-t_w}\Big)^{0.9} & t\ge t_w,
+\end{cases}
+\qquad t_w = 250,\ T = 14\,880 .
+\]
+Gradient clipping on the global norm,
+$\bm g \leftarrow \bm g\cdot\min\!\big(1,\ 0.01/\lVert\bm g\rVert_2\big)$;
+bf16 mixed precision.
+
+\subsection{EoMT}
+
+AdamW ($\lambda=0.05$), same clipping and precision, with the official
+recipe \cite{kerssies2025}:
+\begin{itemize}[leftmargin=1.5em]
+\item \textbf{Layer-wise learning-rate decay} ($\rho = 0.8$): ViT block
+  $l\in\{0,\dots,L-1\}$ uses $\eta^0_l = \eta^0\rho^{\,L-1-l}$ (patch and
+  position embeddings share block 0's rate), and the final norm, queries and
+  heads use $\eta^0 = 10^{-4}$. The first block thus learns
+  $\rho^{11}\approx 0.086$ times slower than the last.
+\item \textbf{Two-stage warm-up then poly decay.} Heads warm up during
+  $t_h=375$ steps while the ViT is frozen, then the ViT warms up during
+  $t_v=750$ steps:
+  \[
+  f_{\text{heads}}(t) =
+  \begin{cases}
+  t/t_h & t<t_h,\\
+  \big(1-\frac{t-t_h}{T-t_h}\big)^{0.9} & t\ge t_h,
+  \end{cases}
+  \qquad
+  f_{\text{ViT}}(t) =
+  \begin{cases}
+  0 & t<t_h,\\
+  (t-t_h)/t_v & t_h\le t<t_h+t_v,\\
+  \big(1-\frac{t-t_h-t_v}{T-t_h-t_v}\big)^{0.9} & t\ge t_h+t_v .
+  \end{cases}
+  \]
+  The official values ($500$ and $1\,000$ steps out of $\approx19\,900$) are
+  rescaled to the same fractions of our $T = 14\,880$.
+\item \textbf{Early stopping} is paused while $P_b(t)>0$ for some $b$, since
+  mask-free validation may dip temporarily during annealing.
+\end{itemize}
+
+\subsection{Pretraining (starting points)}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Model & Pretrained part & Source \\
+\midrule
+ResNet50-UNet & encoder only & ImageNet-1k \\
+Mask2Former Swin-T & whole model, new 9-class head & ADE20K semantic \\
+EoMT-B & whole model, new 9-class head & COCO panoptic (DINOv2 ViT-B) \\
+\bottomrule
+\end{tabular}
+\end{center}
+None of the starting points was trained on Cityscapes.
+
+% =====================================================================
+\section{Statistical comparison}\label{sec:stats}
+% =====================================================================
+
+To test whether a difference in mIoU between models $A$ and $B$ is robust to
+the choice of validation images, a paired bootstrap \cite{efron1993} is used.
+Let $N^{A}_k, N^{B}_k$ be the confusion matrices of image $k$
+($k=1..n$, $n=500$). For $r=1..R$ ($R=2\,000$), draw indices
+$k^{(r)}_1..k^{(r)}_n$ uniformly with replacement and compute
+\[
+\Delta^{(r)} = \mathrm{mIoU}\Big(\sum_{i} N^{B}_{k^{(r)}_i}\Big) - \mathrm{mIoU}\Big(\sum_{i} N^{A}_{k^{(r)}_i}\Big).
+\]
+The $95\%$ confidence interval is
+$[\,q_{0.025}(\Delta),\ q_{0.975}(\Delta)\,]$; the difference is considered
+significant if the interval excludes $0$. This accounts for evaluation
+variance only, not for training variance (one training run per model).
+
+% =====================================================================
+\section{Summary of results}
+% =====================================================================
+
+Validation set, $9$ classes, $512\times1024$; latency for one image on the
+project's laptop GPU (NVIDIA RTX 2000 Ada, 8\,GB), bf16, batch 1 (only the
+ratios between models are meaningful).
+
+\begin{center}
+\small
+\begin{tabular}{lccc}
+\toprule
+ & ResNet50-UNet & Mask2Former Swin-T & EoMT-B \\
+\midrule
+Val mIoU & 0.8157 & 0.8419 & \textbf{0.8425} \\
+$\Delta$ vs baseline [95\% CI] & --- & $+0.026$ [$+0.021$, $+0.031$] & $+0.027$ [$+0.022$, $+0.032$] \\
+Parameters & 40.8\,M & 47.4\,M & 93.9\,M \\
+Inference (bf16) & 21\,ms & 111\,ms & 46\,ms \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+EoMT versus Mask2Former: $\Delta = +0.0007$, $95\%$ CI
+$[-0.003, +0.005]$, i.e.\ no significant difference in accuracy, with a
+$2.4\times$ faster inference for EoMT in bf16.
+
+% =====================================================================
+\sloppy
+\begin{thebibliography}{99}
+\bibitem{cordts2016} M.~Cordts et al., \emph{The Cityscapes Dataset for
+  Semantic Urban Scene Understanding}, CVPR 2016. arXiv:1604.01685.
+\bibitem{ronneberger2015} O.~Ronneberger, P.~Fischer, T.~Brox,
+  \emph{U-Net: Convolutional Networks for Biomedical Image Segmentation},
+  MICCAI 2015. arXiv:1505.04597.
+\bibitem{he2016} K.~He, X.~Zhang, S.~Ren, J.~Sun, \emph{Deep Residual
+  Learning for Image Recognition}, CVPR 2016. arXiv:1512.03385.
+\bibitem{milletari2016} F.~Milletari, N.~Navab, S.-A.~Ahmadi,
+  \emph{V-Net: Fully Convolutional Neural Networks for Volumetric Medical
+  Image Segmentation}, 3DV 2016. arXiv:1606.04797.
+\bibitem{cheng2022} B.~Cheng, I.~Misra, A.~G.~Schwing, A.~Kirillov,
+  R.~Girdhar, \emph{Masked-attention Mask Transformer for Universal Image
+  Segmentation}, CVPR 2022. arXiv:2112.01527.
+\bibitem{liu2021} Z.~Liu et al., \emph{Swin Transformer: Hierarchical Vision
+  Transformer using Shifted Windows}, ICCV 2021. arXiv:2103.14030.
+\bibitem{zhu2021} X.~Zhu et al., \emph{Deformable DETR: Deformable
+  Transformers for End-to-End Object Detection}, ICLR 2021. arXiv:2010.04159.
+\bibitem{kuhn1955} H.~W.~Kuhn, \emph{The Hungarian Method for the Assignment
+  Problem}, Naval Research Logistics Quarterly, 2(1--2), 1955.
+\bibitem{kerssies2025} T.~Kerssies et al., \emph{Your ViT is Secretly an
+  Image Segmentation Model}, CVPR 2025. arXiv:2503.19108. Code:
+  \url{https://github.com/tue-mps/eomt} (MIT licence).
+\bibitem{oquab2023} M.~Oquab et al., \emph{DINOv2: Learning Robust Visual
+  Features without Supervision}, 2023. arXiv:2304.07193.
+\bibitem{kingma2015} D.~P.~Kingma, J.~Ba, \emph{Adam: A Method for
+  Stochastic Optimization}, ICLR 2015. arXiv:1412.6980.
+\bibitem{loshchilov2019} I.~Loshchilov, F.~Hutter, \emph{Decoupled Weight
+  Decay Regularization}, ICLR 2019. arXiv:1711.05101.
+\bibitem{efron1993} B.~Efron, R.~J.~Tibshirani, \emph{An Introduction to the
+  Bootstrap}, Chapman \& Hall, 1993.
+\end{thebibliography}
+
+\end{document}
