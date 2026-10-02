@@ -320,7 +320,7 @@ $H\times W$ (\texttt{semantic\_logits}).
 
 \subsection{Principle}
 
-EoMT \cite{kerssies2025} keeps Mask2Former's mask classification and loss but
+EoMT \cite{kerssies2025vitsecretlyimagesegmentation} keeps Mask2Former's mask classification and loss but
 removes the pixel decoder and the transformer decoder. A plain Vision
 Transformer, pretrained at scale (DINOv2 \cite{oquab2023}), processes image
 patches and segmentation queries \emph{jointly} in its last blocks. Masked
@@ -386,7 +386,7 @@ where $\bar m^{(b)}_n$ is the mask logit resized to the $32\times64$ patch
 grid; all other token pairs are unrestricted. $P_b(t)$ is the probability of
 keeping the mask for block $b$ at optimiser step $t$.
 
-\paragraph{Mask annealing.} Following the official code \cite{kerssies2025},
+\paragraph{Mask annealing.} Following the official code \cite{kerssies2025vitsecretlyimagesegmentation},
 $P_b$ decays from 1 to 0 with a polynomial schedule, block by block:
 \[
 P_b(t) =
@@ -480,7 +480,7 @@ bf16 mixed precision.
 \subsection{EoMT}
 
 AdamW ($\lambda=0.05$), same clipping and precision, with the official
-recipe \cite{kerssies2025}:
+recipe \cite{kerssies2025vitsecretlyimagesegmentation}:
 \begin{itemize}[leftmargin=1.5em]
 \item \textbf{Layer-wise learning-rate decay} ($\rho = 0.8$): ViT block
   $l\in\{0,\dots,L-1\}$ uses $\eta^0_l = \eta^0\rho^{\,L-1-l}$ (patch and
@@ -590,9 +590,11 @@ $2.4\times$ faster inference for EoMT in bf16.
   Transformers for End-to-End Object Detection}, ICLR 2021. arXiv:2010.04159.
 \bibitem{kuhn1955} H.~W.~Kuhn, \emph{The Hungarian Method for the Assignment
   Problem}, Naval Research Logistics Quarterly, 2(1--2), 1955.
-\bibitem{kerssies2025} T.~Kerssies et al., \emph{Your ViT is Secretly an
-  Image Segmentation Model}, CVPR 2025. arXiv:2503.19108. Code:
-  \url{https://github.com/tue-mps/eomt} (MIT licence).
+\bibitem{kerssies2025vitsecretlyimagesegmentation} T.~Kerssies, N.~Cavagnero,
+  A.~Hermans, N.~Norouzi, G.~Averta, B.~Leibe, G.~Dubbelman, D.~de~Geus,
+  \emph{Your ViT is Secretly an Image Segmentation Model}, 2025.
+  arXiv:2503.19108 [cs.CV], \url{https://arxiv.org/abs/2503.19108}.
+  Code: \url{https://github.com/tue-mps/eomt} (MIT licence).
 \bibitem{oquab2023} M.~Oquab et al., \emph{DINOv2: Learning Robust Visual
   Features without Supervision}, 2023. arXiv:2304.07193.
 \bibitem{kingma2015} D.~P.~Kingma, J.~Ba, \emph{Adam: A Method for

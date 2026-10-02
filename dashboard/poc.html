@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CityVision — Proof of Concept</title>
+<style>
+  /* Layout: same system as dashboard/index.html — top bar, compact hero, KPI row,
+     then titled sections of cards; charts are SVG drawn from the embedded DATA block. */
+  :root {
+    --bg: #e9edf3; --surface: #ffffff; --surface-2: #f3f6fb; --ink: #141d2b; --ink-2: #45536a;
+    --muted: #7b8a9e; --border: #dae1ec; --border-strong: #c4cede; --accent: #2d6ea3;
+    --accent-strong: #1b4e7d; --accent-soft: #dbe9f5; --good: #2f8f5b; --good-soft: #ddefe5;
+    --warn: #b5791a; --warn-soft: #f5ead4; --track: #e4eaf2; --grid: #e7ecf3;
+    --shadow: 0 1px 2px rgba(20,35,55,.05), 0 10px 30px rgba(20,35,55,.07);
+    --shadow-lg: 0 4px 12px rgba(20,35,55,.08), 0 24px 60px rgba(20,35,55,.12);
+    --mono: ui-monospace, "Cascadia Code", "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* Series: one fixed colour per model (categorical slots 1-3, validated all-pairs) */
+    --s0: #2a78d6; --s1: #eb6834; --s2: #1baf7a;
+    --band: rgba(27,175,122,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1017; --surface: #131b25; --surface-2: #192330; --ink: #e8eef5; --ink-2: #aebdce;
+      --muted: #6d7c8f; --border: #253140; --border-strong: #34424f; --accent: #4ca0d7;
+      --accent-strong: #7bbce9; --accent-soft: #14303f; --good: #4cb47d; --good-soft: #12301f;
+      --warn: #d69a3a; --warn-soft: #2f2410; --track: #202b38; --grid: #1d2733;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 34px rgba(0,0,0,.4);
+      --shadow-lg: 0 6px 16px rgba(0,0,0,.4), 0 30px 70px rgba(0,0,0,.5);
+      --s0: #3987e5; --s1: #d95926; --s2: #199e70; --band: rgba(25,158,112,.14);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1017; --surface: #131b25; --surface-2: #192330; --ink: #e8eef5; --ink-2: #aebdce;
+    --muted: #6d7c8f; --border: #253140; --border-strong: #34424f; --accent: #4ca0d7;
+    --accent-strong: #7bbce9; --accent-soft: #14303f; --good: #4cb47d; --good-soft: #12301f;
+    --warn: #d69a3a; --warn-soft: #2f2410; --track: #202b38; --grid: #1d2733;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 34px rgba(0,0,0,.4);
+    --shadow-lg: 0 6px 16px rgba(0,0,0,.4), 0 30px 70px rgba(0,0,0,.5);
+    --s0: #3987e5; --s1: #d95926; --s2: #199e70; --band: rgba(25,158,112,.14);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+         line-height:1.55; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1200px; margin:0 auto; padding-block:26px 72px; padding-inline:24px; }
+  a { color:var(--accent); }
+  h1,h2,h3 { margin:0; text-wrap:balance; letter-spacing:-.015em; }
+  .eyebrow { font-family:var(--mono); font-size:11px; letter-spacing:.17em;
+             text-transform:uppercase; color:var(--muted); font-weight:600; }
+
+  /* ---------- Top bar ---------- */
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px;
+            flex-wrap:wrap; margin-bottom:22px; }
+  .logo { display:flex; align-items:center; gap:11px; }
+  .logo .glyph { width:34px; height:34px; border-radius:9px; background:var(--accent);
+    display:grid; place-items:center; color:#fff; font-size:18px; box-shadow:var(--shadow); }
+  .logo .name { font-size:19px; font-weight:750; letter-spacing:-.02em; }
+  .logo .name .mark { color:var(--accent); }
+  .logo .tag { font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; padding:3px 8px; border-radius:6px; background:var(--accent-soft); color:var(--accent); }
+  .actions { display:flex; gap:9px; flex-wrap:wrap; }
+  .btn { display:inline-flex; align-items:center; gap:7px; text-decoration:none;
+    font-family:var(--mono); font-size:12.5px; font-weight:600; padding:8px 13px;
+    border-radius:9px; border:1px solid var(--border-strong); background:var(--surface);
+    color:var(--ink); box-shadow:var(--shadow); transition:transform .12s ease, border-color .12s ease; }
+  .btn:hover { transform:translateY(-1px); border-color:var(--accent); }
+  .theme-toggle { cursor:pointer; font-family:var(--mono); font-size:12.5px; font-weight:600;
+    padding:8px 12px; border-radius:9px; border:1px solid var(--border-strong);
+    background:var(--surface); color:var(--ink-2); }
+  .theme-toggle:hover { border-color:var(--accent); color:var(--ink); }
+
+  /* ---------- Hero ---------- */
+  .hero { background:var(--surface); border:1px solid var(--border); border-radius:18px;
+    padding:26px 30px; box-shadow:var(--shadow-lg); margin-bottom:22px;
+    display:grid; grid-template-columns:1.25fr 1fr; gap:26px; align-items:center; }
+  .hero h1 { font-size:34px; font-weight:780; line-height:1.08; margin-top:10px; }
+  .hero p.lead { color:var(--ink-2); font-size:15px; margin:12px 0 0; max-width:62ch; }
+  .meta { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+  .pill { display:inline-flex; align-items:center; gap:7px; font-family:var(--mono);
+    font-size:12px; font-weight:600; padding:5px 11px; border-radius:999px;
+    border:1px solid var(--border-strong); background:var(--surface-2); color:var(--ink-2); }
+  .verdict { display:flex; flex-direction:column; gap:10px; }
+  .verdict-row { display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:start;
+    padding:12px 14px; border-radius:12px; background:var(--surface-2); border:1px solid var(--border); }
+  .verdict-row .badge { font-family:var(--mono); font-size:10.5px; font-weight:700; padding:3px 8px;
+    border-radius:6px; letter-spacing:.04em; white-space:nowrap; }
+  .badge.yes { background:var(--good-soft); color:var(--good); }
+  .badge.tie { background:var(--track); color:var(--ink-2); }
+  .badge.cost { background:var(--warn-soft); color:var(--warn); }
+  .verdict-row .txt { font-size:13px; color:var(--ink-2); min-width:0; }
+  .verdict-row .txt b { color:var(--ink); }
+
+  /* ---------- KPI ---------- */
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:13px; margin-bottom:8px; }
+  .kpi { background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:15px 17px; box-shadow:var(--shadow); }
+  .kpi .k-label { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .kpi .k-value { font-family:var(--mono); font-weight:700; font-size:28px; line-height:1.1;
+    margin-top:7px; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  .kpi .k-value.good { color:var(--good); }
+  .kpi .k-sub { font-size:12px; color:var(--ink-2); margin-top:4px; }
+
+  /* ---------- Sections / cards ---------- */
+  .sec-title { display:flex; align-items:center; gap:10px; margin:32px 2px 14px; }
+  .sec-title h2 { font-size:14px; font-family:var(--mono); font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-2); }
+  .sec-title .rule { flex:1; height:1px; background:var(--border); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:16px;
+    padding:22px; box-shadow:var(--shadow); min-width:0; }
+  .card-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    margin-bottom:12px; flex-wrap:wrap; }
+  .card-head h2 { font-size:16.5px; font-weight:720; }
+  .card-note { font-size:11.5px; color:var(--muted); font-family:var(--mono); }
+  .card p.note { font-size:12.5px; color:var(--ink-2); margin:10px 0 0; max-width:75ch; }
+  .cols-2 { display:grid; grid-template-columns:1.3fr 1fr; gap:20px; align-items:start; }
+  .cols-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; align-items:stretch; }
+
+  /* ---------- Controls ---------- */
+  .seg { display:inline-flex; border:1px solid var(--border-strong); border-radius:9px; overflow:hidden;
+    background:var(--surface-2); flex-wrap:wrap; }
+  .seg button { font-family:var(--mono); font-size:11.5px; font-weight:600; padding:6px 11px;
+    border:0; background:transparent; color:var(--ink-2); cursor:pointer; }
+  .seg button + button { border-left:1px solid var(--border-strong); }
+  .seg button[aria-pressed="true"] { background:var(--accent); color:#fff; }
+  .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+
+  /* ---------- Legend ---------- */
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--ink-2); margin-top:4px; }
+  .legend span { display:inline-flex; align-items:center; gap:7px; font-family:var(--mono); }
+  .sw { width:12px; height:12px; border-radius:50%; flex:0 0 auto; }
+  .sw.s0 { background:var(--s0); } .sw.s1 { background:var(--s1); } .sw.s2 { background:var(--s2); }
+  .sw.band { border-radius:3px; background:var(--band); border:1px solid var(--s2); }
+
+  /* ---------- Charts ---------- */
+  .chart-box { width:100%; position:relative; }
+  .chart-box svg { display:block; width:100%; height:auto; overflow:visible; }
+  .ax text, .lbl { font-family:var(--mono); font-size:11px; fill:var(--muted); }
+  .lbl.ink { fill:var(--ink); font-weight:600; }
+  .lbl.ink2 { fill:var(--ink-2); }
+  .gl { stroke:var(--grid); stroke-width:1; }
+  .zero { stroke:var(--border-strong); stroke-width:1.5; }
+  .hit { fill:transparent; cursor:crosshair; }
+  .cross { stroke:var(--muted); stroke-width:1; stroke-dasharray:3 3; }
+
+  /* ---------- Model cards ---------- */
+  .mcard { display:flex; flex-direction:column; gap:12px; }
+  .mcard .m-top { display:flex; align-items:center; gap:10px; }
+  .mcard .m-role { font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); }
+  .mcard h3 { font-size:17px; font-weight:740; }
+  .mcard .m-paper { font-size:12px; color:var(--ink-2); }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12.5px; margin:0; }
+  .kv dt { font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--muted); font-weight:600; white-space:nowrap; padding-top:1px; }
+  .kv dd { margin:0; color:var(--ink); font-variant-numeric:tabular-nums; min-width:0; overflow-wrap:anywhere; }
+  .mcard .m-how { font-size:12.5px; color:var(--ink-2); border-top:1px solid var(--border); padding-top:12px; margin:0; }
+  code { font-family:var(--mono); font-size:11.5px; background:var(--surface-2);
+    padding:1px 5px; border-radius:5px; border:1px solid var(--border); }
+
+  /* ---------- Table ---------- */
+  details.table-view { margin-top:20px; }
+  details.table-view summary { cursor:pointer; font-family:var(--mono); font-size:12.5px; font-weight:600;
+    color:var(--accent); }
+  .tbl-wrap { overflow-x:auto; margin-top:12px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; font-variant-numeric:tabular-nums; }
+  th, td { padding:7px 10px; border-bottom:1px solid var(--border); text-align:right; white-space:nowrap; }
+  th:first-child, td:first-child { text-align:left; }
+  th { font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); font-weight:600; }
+  td.best { font-weight:700; color:var(--good); }
+
+  /* ---------- Limits ---------- */
+  ul.limits { margin:0; padding-left:18px; font-size:13px; color:var(--ink-2); display:grid; gap:6px; }
+  ul.limits b { color:var(--ink); }
+
+  .footer { margin-top:32px; padding-top:18px; border-top:1px solid var(--border);
+    display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+  .footer code { font-size:11px; }
+  .empty { padding:30px; text-align:center; color:var(--ink-2); }
+
+  #tt { position:fixed; z-index:60; pointer-events:none; opacity:0; background:var(--ink);
+    font-family:var(--mono); font-size:11.5px; padding:7px 10px; border-radius:7px;
+    box-shadow:var(--shadow-lg); transition:opacity .1s ease; max-width:270px; line-height:1.5;
+    color:var(--surface); }
+  #tt b { color:var(--surface); }
+  #tt .sw { display:inline-block; width:9px; height:9px; margin-right:6px; vertical-align:middle;
+    box-shadow:0 0 0 1.5px var(--surface); }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline:2px solid var(--accent); outline-offset:2px; border-radius:8px; }
+  @media (prefers-reduced-motion:reduce){ * { transition:none !important; } }
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;} .hero h1{font-size:28px;}
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .cols-2,.cols-3{grid-template-columns:1fr;}
+  }
+  @media (max-width:520px){
+    .wrap{padding-inline:16px;} .kpi-grid{grid-template-columns:1fr;} .hero{padding:20px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="logo">
+      <div class="glyph">🛣️</div>
+      <div class="name">City<span class="mark">Vision</span></div>
+      <span class="tag">Proof of concept</span>
+    </div>
+    <div class="actions">
+      <a class="btn" href="index.html">← Main dashboard</a>
+      <a class="btn" href="https://github.com/delnouty/cityvision-segmentation/tree/poc-mask2former" target="_blank" rel="noopener">❯ PoC branch</a>
+      <button class="theme-toggle" id="themeBtn" type="button" aria-label="Toggle light/dark theme">◐ Theme</button>
+    </div>
+  </div>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow" id="heroEyebrow">Cityscapes val · 9 classes · 512×1024</div>
+      <h1>Two recent transformers against the ResNet50-UNet baseline</h1>
+      <p class="lead">Mask2Former (CVPR 2022) and EoMT (CVPR 2025) were fine-tuned with the
+        baseline's data, resolution, class scheme and training budget, then re-evaluated by one
+        script on the same validation images.</p>
+      <div class="meta" id="heroMeta"></div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+  </section>
+
+  <section class="kpi-grid" id="kpis" aria-label="Key results"></section>
+
+  <div class="sec-title"><h2>Accuracy and speed</h2><div class="rule"></div></div>
+  <section class="cols-2">
+    <div class="card">
+      <div class="card-head"><h2>Val mIoU against inference time</h2>
+        <div class="seg" role="group" aria-label="Precision">
+          <button type="button" id="latBf16" aria-pressed="true">bf16</button>
+          <button type="button" id="latFp32" aria-pressed="false">fp32</button>
+        </div>
+      </div>
+      <div class="chart-box" id="scatter"></div>
+      <p class="note">One 512×1024 image, batch 1, on the project's laptop GPU, prediction included.
+        Only the ratios between models carry over to other hardware. Up and to the left is better.</p>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>Per-class IoU</h2><span class="card-note">hover a row</span></div>
+      <div class="chart-box" id="dots"></div>
+      <div class="legend" id="dotsLegend"></div>
+    </div>
+  </section>
+
+  <div class="sec-title"><h2>Is the difference real?</h2><div class="rule"></div></div>
+  <section class="card">
+    <div class="card-head"><h2>Paired bootstrap, 95% confidence intervals</h2>
+      <div class="seg" role="group" aria-label="Comparison" id="cmpSeg"></div>
+    </div>
+    <div class="chart-box" id="forest"></div>
+    <p class="note" id="forestNote"></p>
+  </section>
+
+  <div class="sec-title"><h2>Training</h2><div class="rule"></div></div>
+  <section class="card">
+    <div class="card-head"><h2 id="curveTitle">Validation mIoU per epoch</h2>
+      <div class="controls" style="margin:0">
+        <div class="seg" role="group" aria-label="Metric">
+          <button type="button" id="cvVal" aria-pressed="true">Val mIoU</button>
+          <button type="button" id="cvGap" aria-pressed="false">Train − val gap</button>
+        </div>
+        <div class="seg" role="group" aria-label="Range" id="rangeSeg">
+          <button type="button" id="rgZoom" aria-pressed="true">Zoom</button>
+          <button type="button" id="rgFull" aria-pressed="false">Full range</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-box" id="curves"></div>
+    <div class="legend" id="curvesLegend"></div>
+    <p class="note" id="curvesNote"></p>
+  </section>
+
+  <div class="sec-title"><h2>The three models</h2><div class="rule"></div></div>
+  <section class="cols-3" id="mcards"></section>
+
+  <div class="sec-title"><h2>Limits of the comparison</h2><div class="rule"></div></div>
+  <section class="card">
+    <ul class="limits">
+      <li><b>One training run per model.</b> The bootstrap covers which validation images are scored,
+        not the variation from retraining with another seed.</li>
+      <li><b>The validation set picks the best epoch and is also reported.</b> All three scores are
+        slightly optimistic, by the same mechanism. Cityscapes test labels are not public.</li>
+      <li><b>Different pretraining.</b> Each model starts from its method's standard checkpoint
+        (ImageNet encoder, ADE20K, COCO panoptic); none had seen Cityscapes.</li>
+      <li><b>9 classes at 512×1024.</b> Scores are comparable between these models only, not with
+        published 19-class Cityscapes benchmarks.</li>
+      <li><b>No data augmentation</b> for any model, so the comparison isolates the architecture.
+        Both transformers overfit moderately (see the train − val gap).</li>
+    </ul>
+    <details class="table-view">
+      <summary>Show all numbers as a table</summary>
+      <div class="tbl-wrap" id="table"></div>
+    </details>
+  </section>
+
+  <footer class="footer">
+    <div id="footGen"></div>
+    <div>Regenerate: <code>python scripts/evaluate_poc.py</code> then <code>python scripts/build_poc_dashboard.py</code></div>
+  </footer>
+</div>
+
+<div id="tt" role="status" aria-live="polite"></div>
+
+<script>
+const DATA = /*POC_DATA_BEGIN*/{"generated":"2026-10-02T10:19:53","device":"NVIDIA RTX 2000 Ada Generation Laptop GPU","n_images":500,"versions":{"torch":"2.12.0+cu126","transformers":"5.17.0"},"bootstrap":{"resamples":2000,"seed":0},"classes":["background","road","building","vegetation","sky","person","car","traffic_sign","bicycle"],"models":[{"name":"ResNet50-UNet","role":"Baseline","paper":"U-Net (2015) + ResNet-50 (2016)","pretraining":"ImageNet-1k (encoder only)","checkpoint":"backend/model/resnet50_best.pth","sha256":"64e693dd26d7","precision":"fp32","params_M":40.8,"mIoU":0.8157,"pixel_accuracy":0.9272,"iou":{"background":0.7551,"road":0.9264,"building":0.8603,"vegetation":0.8954,"sky":0.9184,"person":0.7276,"car":0.9139,"traffic_sign":0.6529,"bicycle":0.6912},"latency_ms":{"fp32":36.9,"bf16":19.4},"train_hours":4.71,"curves":{"epoch":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],"val":[0.4014,0.5507,0.5477,0.615,0.7062,0.7902,0.8013,0.8063,0.808,0.8105,0.8112,0.8117,0.8127,0.8115,0.8106,0.8133,0.812,0.815,0.8141,0.8157],"train":[0.3256,0.4884,0.5615,0.593,0.7055,0.8017,0.8438,0.8538,0.8632,0.8704,0.8739,0.8801,0.8838,0.8881,0.8893,0.8872,0.8912,0.8937,0.8953,0.8985]}},{"name":"Mask2Former-SwinT","role":"Solution 1","paper":"Cheng et al., CVPR 2022 · arXiv 2112.01527","pretraining":"ADE20K semantic (whole model)","checkpoint":"model_backups/mask2former_swint_best.pth","sha256":"f395b5e00aec","precision":"bf16","params_M":47.4,"mIoU":0.8419,"pixel_accuracy":0.9427,"iou":{"background":0.8135,"road":0.9462,"building":0.8915,"vegetation":0.9032,"sky":0.9118,"person":0.7694,"car":0.93,"traffic_sign":0.6984,"bicycle":0.7129},"latency_ms":{"fp32":144.2,"bf16":107.7},"train_hours":5.86,"curves":{"epoch":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],"val":[0.8113,0.8234,0.824,0.8298,0.8302,0.828,0.8274,0.836,0.8354,0.836,0.8368,0.8378,0.8402,0.8405,0.8419,0.8418,0.8409,0.8405,0.8405,0.8417],"train":[0.6965,0.8285,0.8386,0.8473,0.8567,0.8617,0.8659,0.8694,0.8744,0.8777,0.8815,0.8833,0.8866,0.8882,0.8898,0.8918,0.894,0.8959,0.8961,0.8971]}},{"name":"EoMT-B","role":"Solution 2","paper":"Kerssies et al., CVPR 2025 · arXiv 2503.19108","pretraining":"COCO panoptic, DINOv2 ViT-B (whole model)","checkpoint":"model_backups/eomt_base_best.pth","sha256":"6a177067c4e4","precision":"bf16","params_M":93.9,"mIoU":0.8426,"pixel_accuracy":0.9457,"iou":{"background":0.8266,"road":0.9534,"building":0.8926,"vegetation":0.902,"sky":0.9073,"person":0.7696,"car":0.9342,"traffic_sign":0.6797,"bicycle":0.7179},"latency_ms":{"fp32":158.9,"bf16":44.4},"train_hours":9.57,"curves":{"epoch":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],"val":[0.7966,0.8221,0.8268,0.8339,0.836,0.8378,0.8328,0.8386,0.8409,0.8409,0.842,0.8403,0.8417,0.8424,0.8411,0.8409,0.841,0.8426,0.8419,0.8415],"train":[0.5295,0.8293,0.8523,0.8659,0.8726,0.8826,0.8884,0.8938,0.897,0.9026,0.9041,0.9074,0.9102,0.9128,0.9142,0.9166,0.9181,0.9208,0.921,0.9209],"mask_probs":[[1.0,1.0,1.0],[1.0,1.0,1.0],[1.0,1.0,1.0],[1.0,1.0,1.0],[0.772,1.0,1.0],[0.536,1.0,1.0],[0.287,1.0,1.0],[0.0,1.0,1.0],[0.0,0.772,1.0],[0.0,0.536,1.0],[0.0,0.287,1.0],[0.0,0.0,1.0],[0.0,0.0,0.772],[0.0,0.0,0.536],[0.0,0.0,0.287],[0.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0,0.0]]}}],"comparisons":[{"A":"ResNet50-UNet","B":"Mask2Former-SwinT","delta":0.0262,"ci":[0.0212,0.0313],"p_le_0":0.0,"classes":{"background":{"delta":0.0584,"ci":[0.0377,0.0785]},"road":{"delta":0.0198,"ci":[0.0059,0.0337]},"building":{"delta":0.0312,"ci":[0.0258,0.037]},"vegetation":{"delta":0.0079,"ci":[0.0038,0.0121]},"sky":{"delta":-0.0066,"ci":[-0.0136,-0.0006]},"person":{"delta":0.0418,"ci":[0.0327,0.0516]},"car":{"delta":0.0161,"ci":[0.0089,0.0245]},"traffic_sign":{"delta":0.0455,"ci":[0.0309,0.0606]},"bicycle":{"delta":0.0217,"ci":[0.0126,0.031]}}},{"A":"ResNet50-UNet","B":"EoMT-B","delta":0.0269,"ci":[0.0216,0.0321],"p_le_0":0.0,"classes":{"background":{"delta":0.0715,"ci":[0.0517,0.0917]},"road":{"delta":0.027,"ci":[0.013,0.0414]},"building":{"delta":0.0322,"ci":[0.0267,0.0382]},"vegetation":{"delta":0.0067,"ci":[0.0034,0.0103]},"sky":{"delta":-0.011,"ci":[-0.0179,-0.0052]},"person":{"delta":0.042,"ci":[0.0315,0.0537]},"car":{"delta":0.0203,"ci":[0.0132,0.0292]},"traffic_sign":{"delta":0.0268,"ci":[0.0093,0.0435]},"bicycle":{"delta":0.0267,"ci":[0.0159,0.0378]}}},{"A":"Mask2Former-SwinT","B":"EoMT-B","delta":0.0007,"ci":[-0.0031,0.0046],"p_le_0":0.366,"classes":{"background":{"delta":0.0131,"ci":[-0.0013,0.0276]},"road":{"delta":0.0072,"ci":[-0.003,0.0178]},"building":{"delta":0.001,"ci":[-0.0024,0.0043]},"vegetation":{"delta":-0.0012,"ci":[-0.0045,0.0025]},"sky":{"delta":-0.0045,"ci":[-0.006,-0.003]},"person":{"delta":0.0002,"ci":[-0.0074,0.0076]},"car":{"delta":0.0042,"ci":[-0.0003,0.0082]},"traffic_sign":{"delta":-0.0187,"ci":[-0.0313,-0.0061]},"bicycle":{"delta":0.005,"ci":[-0.0046,0.015]}}}]}/*POC_DATA_END*/;
+
+(function () {
+  // ---------- Theme toggle (same behaviour as the main dashboard) ----------
+  document.getElementById("themeBtn").addEventListener("click", () => {
+    const root = document.documentElement;
+    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+    const cur = root.getAttribute("data-theme") || (dark ? "dark" : "light");
+    root.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  });
+
+  if (!DATA) {
+    document.querySelector(".wrap").insertAdjacentHTML("beforeend",
+      '<div class="card empty">No results embedded yet. Run <code>python scripts/evaluate_poc.py</code> ' +
+      'then <code>python scripts/build_poc_dashboard.py</code>.</div>');
+    return;
+  }
+
+  // ---------- Helpers ----------
+  const M = DATA.models;
+  const byName = Object.fromEntries(M.map((m, i) => [m.name, { ...m, idx: i }]));
+  const sw = i => `<span class="sw s${i}"></span>`;
+  const f4 = v => v.toFixed(4);
+  const sgn = (v, d = 4) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const lin = (d0, d1, r0, r1) => v => r0 + (v - d0) * (r1 - r0) / (d1 - d0);
+  function ticks(lo, hi, n) {
+    const raw = (hi - lo) / n, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1, 2, 2.5, 5, 10].map(k => k * p).find(s => s >= raw);
+    const out = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(10));
+    return out;
+  }
+  const tt = document.getElementById("tt");
+  function showTT(html, e) {
+    tt.innerHTML = html; tt.style.opacity = "1";
+    const pad = 14, w = tt.offsetWidth, h = tt.offsetHeight;
+    let x = e.clientX + pad, y = e.clientY + pad;
+    if (x + w > innerWidth) x = e.clientX - w - pad;
+    if (y + h > innerHeight) y = e.clientY - h - pad;
+    tt.style.left = x + "px"; tt.style.top = y + "px";
+  }
+  function hideTT() { tt.style.opacity = "0"; }
+  function seg(ids, onPick) {
+    ids.forEach(id => document.getElementById(id).addEventListener("click", () => {
+      ids.forEach(o => document.getElementById(o).setAttribute("aria-pressed", String(o === id)));
+      onPick(id);
+    }));
+  }
+  const widthOf = el => Math.max(300, el.clientWidth || 600);
+  const legendHTML = () => M.map((m, i) => `<span>${sw(i)}${esc(m.name)}</span>`).join("");
+  const bestEpoch = m => m.curves ? m.curves.epoch[m.curves.val.indexOf(Math.max(...m.curves.val))] : null;
+  const cmp = (a, b) => DATA.comparisons.find(c => c.A === a && c.B === b);
+
+  const base = M[0], m2f = byName["Mask2Former-SwinT"], eomt = byName["EoMT-B"];
+
+  // ---------- Hero meta + verdict ----------
+  document.getElementById("heroEyebrow").textContent =
+    `Cityscapes val · ${DATA.n_images} images · ${DATA.classes.length} classes · 512×1024`;
+  document.getElementById("heroMeta").innerHTML = [
+    `${DATA.bootstrap.resamples} bootstrap resamples`,
+    `evaluated ${DATA.generated.slice(0, 10)}`,
+    esc(DATA.device),
+  ].map(t => `<span class="pill">${t}</span>`).join("");
+
+  const verdict = [];
+  DATA.comparisons.filter(c => c.A === base.name).forEach(c => {
+    const sig = c.ci[0] > 0;
+    verdict.push(`<div class="verdict-row"><span class="badge ${sig ? "yes" : "tie"}">${sig ? "BETTER" : "NOT SIGNIFICANT"}</span>
+      <div class="txt"><b>${esc(c.B)}</b> vs baseline: ${sgn(c.delta)} mIoU, 95% CI [${sgn(c.ci[0])}, ${sgn(c.ci[1])}]</div></div>`);
+  });
+  const ce = m2f && eomt && cmp(m2f.name, eomt.name);
+  if (ce) {
+    const tie = ce.ci[0] <= 0 && ce.ci[1] >= 0;
+    verdict.push(`<div class="verdict-row"><span class="badge ${tie ? "tie" : "yes"}">${tie ? "TIE" : "DIFFERENT"}</span>
+      <div class="txt"><b>EoMT vs Mask2Former</b>: ${sgn(ce.delta)} mIoU, CI [${sgn(ce.ci[0])}, ${sgn(ce.ci[1])}]</div></div>`);
+  }
+  if (m2f && eomt && m2f.latency_ms && eomt.latency_ms) {
+    verdict.push(`<div class="verdict-row"><span class="badge cost">SPEED</span>
+      <div class="txt">EoMT runs <b>${(m2f.latency_ms.bf16 / eomt.latency_ms.bf16).toFixed(1)}×</b> faster than Mask2Former in bf16;
+      the baseline is still ${(eomt.latency_ms.bf16 / base.latency_ms.bf16).toFixed(1)}× faster than EoMT.</div></div>`);
+  }
+  document.getElementById("verdict").innerHTML = verdict.join("");
+
+  // ---------- KPIs ----------
+  const best = M.reduce((a, b) => (b.mIoU > a.mIoU ? b : a));
+  const gains = DATA.comparisons.filter(c => c.A === base.name);
+  const topGain = gains.reduce((a, b) => (b.delta > a.delta ? b : a), gains[0]);
+  const kpis = [
+    { l: "Best val mIoU", v: f4(best.mIoU), s: `${esc(best.name)} · baseline ${f4(base.mIoU)}`, good: true },
+    topGain && { l: "Gain vs baseline", v: sgn(topGain.delta, 3), s: `CI [${sgn(topGain.ci[0], 3)}, ${sgn(topGain.ci[1], 3)}]`, good: topGain.ci[0] > 0 },
+    eomt && eomt.latency_ms && { l: "EoMT inference", v: `${Math.round(eomt.latency_ms.bf16)} ms`, s: `bf16 · Mask2Former ${Math.round(m2f.latency_ms.bf16)} ms` },
+    eomt && { l: "Training time", v: `${eomt.train_hours?.toFixed(1) ?? "–"} h`, s: `EoMT · Mask2Former ${m2f.train_hours?.toFixed(1) ?? "–"} h · baseline ${base.train_hours?.toFixed(1) ?? "–"} h` },
+  ].filter(Boolean);
+  document.getElementById("kpis").innerHTML = kpis.map(k =>
+    `<div class="kpi"><div class="k-label">${k.l}</div><div class="k-value${k.good ? " good" : ""}">${k.v}</div><div class="k-sub">${k.s}</div></div>`
+  ).join("");
+
+  // ---------- Scatter: accuracy vs latency ----------
+  let latKey = "bf16";
+  function drawScatter() {
+    const el = document.getElementById("scatter");
+    const pts = M.filter(m => m.latency_ms);
+    if (!pts.length) { el.innerHTML = '<div class="empty">Latency not measured.</div>'; return; }
+    const W = widthOf(el), H = 280, L = 52, R = 24, T = 16, B = 40;
+    const xs = pts.map(m => m.latency_ms[latKey]), ys = pts.map(m => m.mIoU);
+    const xMax = Math.max(...xs) * 1.15;
+    const yLo = Math.floor((Math.min(...ys) - 0.008) * 200) / 200, yHi = Math.ceil((Math.max(...ys) + 0.006) * 200) / 200;
+    const x = lin(0, xMax, L, W - R), y = lin(yLo, yHi, H - B, T);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Validation mIoU against inference time">`;
+    ticks(yLo, yHi, 4).forEach(v => { s += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="lbl" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v.toFixed(3)}</text>`; });
+    ticks(0, xMax, 5).forEach(v => { s += `<text class="lbl" x="${x(v)}" y="${H - B + 18}" text-anchor="middle">${v}</text>`; });
+    s += `<line class="zero" x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}"/>`;
+    s += `<text class="lbl" x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">inference time per image, ms (${latKey})</text>`;
+    s += `<text class="lbl" x="12" y="${T + (H - B - T) / 2}" text-anchor="middle" transform="rotate(-90 12 ${T + (H - B - T) / 2})">val mIoU</text>`;
+    pts.forEach(m => {
+      const cx = x(m.latency_ms[latKey]), cy = y(m.mIoU), i = byName[m.name].idx;
+      const right = cx < W - R - 150;
+      s += `<circle cx="${cx}" cy="${cy}" r="7" style="fill:var(--s${i});stroke:var(--surface);stroke-width:2"/>`;
+      s += `<text class="lbl ink" x="${cx + (right ? 12 : -12)}" y="${cy - 2}" text-anchor="${right ? "start" : "end"}">${esc(m.name)}</text>`;
+      s += `<text class="lbl ink2" x="${cx + (right ? 12 : -12)}" y="${cy + 12}" text-anchor="${right ? "start" : "end"}">${f4(m.mIoU)} · ${Math.round(m.latency_ms[latKey])} ms</text>`;
+      s += `<circle class="hit" data-n="${esc(m.name)}" cx="${cx}" cy="${cy}" r="18"/>`;
+    });
+    el.innerHTML = s + "</svg>";
+    el.querySelectorAll(".hit").forEach(c => {
+      const m = byName[c.dataset.n];
+      c.addEventListener("mousemove", e => showTT(`${sw(m.idx)}<b>${esc(m.name)}</b><br>mIoU ${f4(m.mIoU)}<br>fp32 ${m.latency_ms.fp32.toFixed(0)} ms · bf16 ${m.latency_ms.bf16.toFixed(0)} ms<br>${m.params_M} M params`, e));
+      c.addEventListener("mouseleave", hideTT);
+    });
+  }
+  seg(["latBf16", "latFp32"], id => { latKey = id === "latBf16" ? "bf16" : "fp32"; drawScatter(); });
+
+  // ---------- Dot plot: per-class IoU ----------
+  function drawDots() {
+    const el = document.getElementById("dots");
+    const rows = ["mIoU", ...DATA.classes];
+    const val = (m, r) => (r === "mIoU" ? m.mIoU : m.iou[r]);
+    const all = rows.flatMap(r => M.map(m => val(m, r)));
+    const lo = Math.floor((Math.min(...all) - 0.02) * 20) / 20, hi = Math.min(1, Math.ceil((Math.max(...all) + 0.01) * 20) / 20);
+    const W = widthOf(el), L = 96, R = 14, T = 8, rowH = 27, H = T + rows.length * rowH + 26;
+    const x = lin(lo, hi, L, W - R);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Per-class IoU for each model">`;
+    ticks(lo, hi, 5).forEach(v => { s += `<line class="gl" x1="${x(v)}" x2="${x(v)}" y1="${T}" y2="${H - 22}"/><text class="lbl" x="${x(v)}" y="${H - 6}" text-anchor="middle">${v.toFixed(2)}</text>`; });
+    rows.forEach((r, k) => {
+      const cy = T + k * rowH + rowH / 2, vs = M.map(m => val(m, r));
+      if (k === 1) s += `<line class="zero" x1="${L - 90}" x2="${W - R}" y1="${T + rowH}" y2="${T + rowH}" style="stroke-dasharray:2 3"/>`;
+      s += `<text class="lbl ${r === "mIoU" ? "ink" : "ink2"}" x="${L - 10}" y="${cy + 4}" text-anchor="end">${r === "mIoU" ? "mean (mIoU)" : r.replace("_", " ")}</text>`;
+      s += `<line x1="${x(Math.min(...vs))}" x2="${x(Math.max(...vs))}" y1="${cy}" y2="${cy}" style="stroke:var(--border-strong);stroke-width:2;stroke-linecap:round"/>`;
+      M.forEach((m, i) => { s += `<circle cx="${x(val(m, r))}" cy="${cy}" r="5.5" style="fill:var(--s${i});stroke:var(--surface);stroke-width:2"/>`; });
+      s += `<rect class="hit" data-r="${r}" x="0" y="${cy - rowH / 2}" width="${W}" height="${rowH}"/>`;
+    });
+    el.innerHTML = s + "</svg>";
+    el.querySelectorAll(".hit").forEach(h => {
+      const r = h.dataset.r;
+      h.addEventListener("mousemove", e => showTT(`<b>${r === "mIoU" ? "mean IoU" : r}</b><br>` +
+        M.map((m, i) => `${sw(i)}${esc(m.name)} ${f4(val(m, r))}`).join("<br>"), e));
+      h.addEventListener("mouseleave", hideTT);
+    });
+    document.getElementById("dotsLegend").innerHTML = legendHTML();
+  }
+
+  // ---------- Forest plot: bootstrap CIs ----------
+  const cmpSeg = document.getElementById("cmpSeg");
+  DATA.comparisons.forEach((c, k) => {
+    const short = n => n.replace("-SwinT", "").replace("-UNet", "").replace("ResNet50", "Baseline");
+    cmpSeg.insertAdjacentHTML("beforeend", `<button type="button" id="cmp${k}" aria-pressed="${k === 0}">${esc(short(c.B))} − ${esc(short(c.A))}</button>`);
+  });
+  let cmpIdx = 0;
+  function drawForest() {
+    const el = document.getElementById("forest"), c = DATA.comparisons[cmpIdx];
+    if (!c) { el.innerHTML = '<div class="empty">No bootstrap comparison available.</div>'; return; }
+    const rows = [{ k: "mIoU", d: c.delta, ci: c.ci }, ...DATA.classes.map(k => ({ k, d: c.classes[k].delta, ci: c.classes[k].ci }))];
+    const ext = Math.max(...rows.flatMap(r => r.ci.map(Math.abs))) * 1.12;
+    const W = widthOf(el), L = 110, R = 150, T = 22, rowH = 26, H = T + rows.length * rowH + 28;
+    const x = lin(-ext, ext, L, W - R), i = byName[c.B]?.idx ?? 0;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bootstrap confidence intervals of the difference ${esc(c.B)} minus ${esc(c.A)}">`;
+    s += `<text class="lbl" x="${x(-ext / 2)}" y="12" text-anchor="middle">← ${esc(c.A)} better</text>`;
+    s += `<text class="lbl" x="${x(ext / 2)}" y="12" text-anchor="middle">${esc(c.B)} better →</text>`;
+    ticks(-ext, ext, 6).forEach(v => { s += `<line class="gl" x1="${x(v)}" x2="${x(v)}" y1="${T}" y2="${H - 24}"/><text class="lbl" x="${x(v)}" y="${H - 8}" text-anchor="middle">${v === 0 ? "0" : sgn(v, 2)}</text>`; });
+    s += `<line class="zero" x1="${x(0)}" x2="${x(0)}" y1="${T}" y2="${H - 24}"/>`;
+    s += `<text class="lbl" x="${W - R + 12}" y="${T - 6}">Δ [95% CI]</text>`;
+    rows.forEach((r, k) => {
+      const cy = T + k * rowH + rowH / 2, sig = r.ci[0] > 0 || r.ci[1] < 0;
+      if (k === 1) s += `<line class="zero" x1="8" x2="${W - 8}" y1="${T + rowH}" y2="${T + rowH}" style="stroke-dasharray:2 3"/>`;
+      s += `<text class="lbl ${r.k === "mIoU" ? "ink" : "ink2"}" x="${L - 10}" y="${cy + 4}" text-anchor="end">${r.k === "mIoU" ? "mIoU" : r.k.replace("_", " ")}</text>`;
+      s += `<line x1="${x(r.ci[0])}" x2="${x(r.ci[1])}" y1="${cy}" y2="${cy}" style="stroke:var(--s${i});stroke-width:2.5;stroke-linecap:round"/>`;
+      s += `<circle cx="${x(r.d)}" cy="${cy}" r="5" style="fill:${sig ? `var(--s${i})` : "var(--surface)"};stroke:var(--s${i});stroke-width:2"/>`;
+      s += `<text class="lbl ${sig ? "ink" : ""}" x="${W - R + 12}" y="${cy + 4}">${sgn(r.d, 3)} [${sgn(r.ci[0], 3)}, ${sgn(r.ci[1], 3)}]${sig ? "" : " n.s."}</text>`;
+      s += `<rect class="hit" data-k="${k}" x="0" y="${cy - rowH / 2}" width="${W}" height="${rowH}"/>`;
+    });
+    el.innerHTML = s + "</svg>";
+    el.querySelectorAll(".hit").forEach(h => {
+      const r = rows[+h.dataset.k], sig = r.ci[0] > 0 || r.ci[1] < 0;
+      h.addEventListener("mousemove", e => showTT(`<b>${r.k}</b>: ${esc(c.B)} − ${esc(c.A)}<br>Δ ${sgn(r.d)}<br>95% CI [${sgn(r.ci[0])}, ${sgn(r.ci[1])}]<br>${sig ? "significant (CI excludes 0)" : "not significant (CI contains 0)"}`, e));
+      h.addEventListener("mouseleave", hideTT);
+    });
+    document.getElementById("forestNote").textContent =
+      `Filled dot: the interval excludes 0, so the difference holds whichever validation images are drawn. ` +
+      `Hollow dot (n.s.): not significant. mIoU difference ${sgn(c.delta)}; it was ≤ 0 in ${(c.p_le_0 * 100).toFixed(1)}% of ${DATA.bootstrap.resamples} resamples. ` +
+      `The intervals cover evaluation variance only, not retraining with another seed.`;
+  }
+  seg(DATA.comparisons.map((_, k) => `cmp${k}`), id => { cmpIdx = +id.slice(3); drawForest(); });
+
+  // ---------- Training curves ----------
+  let cvMode = "val", zoom = true;
+  const withCurves = M.filter(m => m.curves);
+  function annealing() {
+    const c = eomt && eomt.curves && eomt.curves.mask_probs;
+    if (!c) return null;
+    const ep = eomt.curves.epoch;
+    const s = c.findIndex(p => p.some(v => v < 1)), e = c.findIndex(p => p.every(v => v === 0));
+    return s < 0 ? null : { from: ep[s] - 1, to: e < 0 ? ep[ep.length - 1] : ep[e] };
+  }
+  function drawCurves() {
+    const el = document.getElementById("curves");
+    document.getElementById("rangeSeg").style.display = cvMode === "val" ? "" : "none";
+    document.getElementById("curveTitle").textContent = cvMode === "val" ? "Validation mIoU per epoch" : "Overfitting: train mIoU − val mIoU";
+    if (!withCurves.length) { el.innerHTML = '<div class="empty">No MLflow curves found.</div>'; return; }
+    const get = m => m.curves.epoch.map((e, k) => [e, cvMode === "val" ? m.curves.val[k] : m.curves.train[k] - m.curves.val[k]]);
+    const series = withCurves.map(m => ({ m, pts: get(m).filter(p => isFinite(p[1])) }));
+    const all = series.flatMap(s => s.pts.map(p => p[1]));
+    const maxEp = Math.max(...series.flatMap(s => s.pts.map(p => p[0])));
+    let lo, hi;
+    if (cvMode === "val") { hi = Math.ceil((Math.max(...all) + 0.005) * 100) / 100; lo = zoom ? 0.78 : Math.floor(Math.min(...all) * 20) / 20; }
+    else { lo = Math.floor(Math.min(0, ...all.filter(v => v > -0.05)) * 100) / 100; hi = Math.ceil(Math.max(...all) * 100) / 100 + 0.01; }
+    const W = widthOf(el), H = 300, L = 54, R = 20, T = 14, B = 34;
+    const x = lin(1, maxEp, L, W - R), y = lin(lo, hi, H - B, T);
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${cvMode === "val" ? "Validation mIoU" : "Train minus validation mIoU"} per epoch"><defs><clipPath id="plotclip"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - B - T}"/></clipPath></defs>`;
+    const an = annealing();
+    if (an) {
+      const x0 = x(Math.max(1, an.from)), x1 = x(an.to);
+      s += `<rect x="${x0}" y="${T}" width="${x1 - x0}" height="${H - B - T}" style="fill:var(--band)"/>`;
+      s += `<text class="lbl" x="${(x0 + x1) / 2}" y="${T + 12}" text-anchor="middle">EoMT mask annealing</text>`;
+    }
+    ticks(lo, hi, 5).forEach(v => { s += `<line class="gl" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text class="lbl" x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${cvMode === "val" ? v.toFixed(2) : sgn(v, 2)}</text>`; });
+    if (cvMode === "gap") s += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/>`;
+    for (let e = 1; e <= maxEp; e += (W < 520 ? 4 : 2) - (e === 1 ? 1 : 0)) s += `<text class="lbl" x="${x(e)}" y="${H - B + 18}" text-anchor="middle">${e}</text>`;
+    s += `<text class="lbl" x="${(L + W - R) / 2}" y="${H - 2}" text-anchor="middle">epoch</text>`;
+    s += `<g clip-path="url(#plotclip)">`;
+    series.forEach(({ m, pts }) => {
+      const i = byName[m.name].idx;
+      s += `<polyline points="${pts.map(p => `${x(p[0])},${y(p[1])}`).join(" ")}" style="fill:none;stroke:var(--s${i});stroke-width:2;stroke-linejoin:round"/>`;
+      if (cvMode === "val") {
+        const be = bestEpoch(m), bp = pts.find(p => p[0] === be);
+        if (bp) s += `<circle cx="${x(bp[0])}" cy="${y(bp[1])}" r="5" style="fill:var(--s${i});stroke:var(--surface);stroke-width:2"/>`;
+      }
+    });
+    s += `</g><line class="cross" id="crossLine" x1="0" x2="0" y1="${T}" y2="${H - B}" style="opacity:0"/>`;
+    s += `<rect class="hit" id="curveHit" x="${L}" y="${T}" width="${W - L - R}" height="${H - B - T}"/>`;
+    el.innerHTML = s + "</svg>";
+    const hit = el.querySelector("#curveHit"), cl = el.querySelector("#crossLine"), svg = el.querySelector("svg");
+    hit.addEventListener("mousemove", e => {
+      const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+      const ep = Math.min(maxEp, Math.max(1, Math.round(1 + (px - L) * (maxEp - 1) / (W - L - R))));
+      cl.setAttribute("x1", x(ep)); cl.setAttribute("x2", x(ep)); cl.style.opacity = "1";
+      showTT(`<b>Epoch ${ep}</b><br>` + series.map(({ m, pts }) => {
+        const p = pts.find(q => q[0] === ep), i = byName[m.name].idx;
+        return `${sw(i)}${esc(m.name)} ${p ? (cvMode === "val" ? f4(p[1]) : sgn(p[1], 3)) : "–"}${p && cvMode === "val" && ep === bestEpoch(m) ? " (best)" : ""}`;
+      }).join("<br>"), e);
+    });
+    hit.addEventListener("mouseleave", () => { cl.style.opacity = "0"; hideTT(); });
+    document.getElementById("curvesLegend").innerHTML = legendHTML() + (an ? `<span><span class="sw band"></span>EoMT mask annealing</span>` : "");
+    const clipped = cvMode === "val" && zoom ? series.filter(({ pts }) => pts.some(p => p[1] < lo)) : [];
+    document.getElementById("curvesNote").textContent = cvMode === "val"
+      ? `Dot = best epoch, the checkpoint that is evaluated. EoMT is validated without masked attention, as deployed. ` +
+        (clipped.length ? `Zoomed to ≥ ${lo.toFixed(2)}: early epochs of ${clipped.map(c => c.m.name).join(", ")} lie below; switch to Full range to see them.` : "")
+      : `Train mIoU is averaged over each epoch while the model learns, so early epochs can be negative. A growing gap while val mIoU stalls is overfitting.`;
+  }
+  seg(["cvVal", "cvGap"], id => { cvMode = id === "cvVal" ? "val" : "gap"; drawCurves(); });
+  seg(["rgZoom", "rgFull"], id => { zoom = id === "rgZoom"; drawCurves(); });
+
+  // ---------- Model cards ----------
+  const how = {
+    "ResNet50-UNet": "Classifies every pixel directly: a ResNet-50 encoder, a U-Net decoder with skip connections, trained with weighted cross-entropy + Dice.",
+    "Mask2Former-SwinT": "Predicts 100 masks, each with a class. A transformer decoder lets each query attend only to its own predicted region (masked attention). Masks are matched to the ground truth with the Hungarian algorithm.",
+    "EoMT-B": "Same mask-and-class output as Mask2Former, without its decoders: 200 queries join the image patches in the last 3 blocks of a plain ViT. Masked attention is phased out during training, so inference is a single ViT pass.",
+  };
+  document.getElementById("mcards").innerHTML = M.map((m, i) => `
+    <div class="card mcard">
+      <div class="m-top">${sw(i)}<span class="m-role">${esc(m.role)}</span></div>
+      <div><h3>${esc(m.name)}</h3><div class="m-paper">${esc(m.paper)}</div></div>
+      <dl class="kv">
+        <dt>val mIoU</dt><dd><b>${f4(m.mIoU)}</b></dd>
+        <dt>Params</dt><dd>${m.params_M} M</dd>
+        <dt>Pretraining</dt><dd>${esc(m.pretraining)}</dd>
+        <dt>Precision</dt><dd>${esc(m.precision)}</dd>
+        <dt>Training</dt><dd>${m.train_hours != null ? m.train_hours.toFixed(1) + " h" : "–"}${bestEpoch(m) ? ` · best epoch ${bestEpoch(m)}` : ""}</dd>
+        <dt>Checkpoint</dt><dd><code>${esc(m.checkpoint.split("/").pop())}</code> <span style="color:var(--muted)">${esc(m.sha256)}</span></dd>
+      </dl>
+      <p class="m-how">${esc(how[m.name] || "")}</p>
+    </div>`).join("");
+
+  // ---------- Table view ----------
+  const rowsT = [
+    ["val mIoU", m => m.mIoU, true], ["pixel accuracy", m => m.pixel_accuracy, true],
+    ...DATA.classes.map(c => [c, m => m.iou[c], true]),
+    ["latency fp32 (ms)", m => m.latency_ms?.fp32, false], ["latency bf16 (ms)", m => m.latency_ms?.bf16, false],
+    ["parameters (M)", m => m.params_M, false], ["training (h)", m => m.train_hours, false],
+  ];
+  let t = `<table><thead><tr><th>Metric</th>${M.map(m => `<th>${esc(m.name)}</th>`).join("")}</tr></thead><tbody>`;
+  rowsT.forEach(([label, f, higherBetter]) => {
+    const vals = M.map(f), top = higherBetter ? Math.max(...vals.filter(v => v != null)) : null;
+    t += `<tr><td>${label}</td>${vals.map(v => `<td class="${higherBetter && v === top ? "best" : ""}">${v == null ? "–" : higherBetter ? f4(v) : (+v).toFixed(1)}</td>`).join("")}</tr>`;
+  });
+  t += `</tbody></table>`;
+  if (DATA.comparisons.length) {
+    t += `<table style="margin-top:14px"><thead><tr><th>Bootstrap B − A</th><th>Δ mIoU</th><th>95% CI</th><th>P(Δ ≤ 0)</th></tr></thead><tbody>` +
+      DATA.comparisons.map(c => `<tr><td>${esc(c.B)} − ${esc(c.A)}</td><td>${sgn(c.delta)}</td><td>[${sgn(c.ci[0])}, ${sgn(c.ci[1])}]</td><td>${c.p_le_0.toFixed(3)}</td></tr>`).join("") +
+      `</tbody></table>`;
+  }
+  document.getElementById("table").innerHTML = t;
+
+  document.getElementById("footGen").innerHTML =
+    `Evaluated ${esc(DATA.generated.replace("T", " "))} · torch ${esc(DATA.versions.torch)}` +
+    (DATA.versions.transformers ? ` · transformers ${esc(DATA.versions.transformers)}` : "");
+
+  // ---------- Draw + redraw on resize ----------
+  const drawAll = () => { drawScatter(); drawDots(); drawForest(); drawCurves(); };
+  drawAll();
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(drawAll, 120); });
+})();
+</script>
+</body>
+</html>
