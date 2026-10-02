@@ -4,3 +4,5 @@
 #   pip install -r requirements-poc.txt
 transformers==5.17.0
 scipy==1.15.3   # Hungarian matching in the Mask2Former loss
+opencv-python-headless==5.0.0.93   # poc_app: histogram equalisation, CLAHE, blur
+altair==6.2.2   # poc_app charts (already installed with streamlit; pinned here)

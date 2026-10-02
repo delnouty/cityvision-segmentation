@@ -1,0 +1,645 @@
+{
+ "generated": "2026-10-02T10:52:53",
+ "source": "Cityscapes leftImg8bit + gtFine (labelIds), remapped to 9 classes",
+ "original_size": [
+  2048,
+  1024
+ ],
+ "sample_size": [
+  1024,
+  512
+ ],
+ "classes": [
+  "background",
+  "road",
+  "building",
+  "vegetation",
+  "sky",
+  "person",
+  "car",
+  "traffic_sign",
+  "bicycle"
+ ],
+ "splits": {
+  "train": {
+   "n_images": 2975,
+   "cities": {
+    "aachen": 174,
+    "bochum": 96,
+    "bremen": 316,
+    "cologne": 154,
+    "darmstadt": 85,
+    "dusseldorf": 221,
+    "erfurt": 109,
+    "hamburg": 248,
+    "hanover": 196,
+    "jena": 119,
+    "krefeld": 99,
+    "monchengladbach": 94,
+    "strasbourg": 365,
+    "stuttgart": 196,
+    "tubingen": 144,
+    "ulm": 95,
+    "weimar": 142,
+    "zurich": 122
+   },
+   "pixels": {
+    "background": 1333246785,
+    "road": 2036416525,
+    "building": 1260636120,
+    "vegetation": 879783988,
+    "sky": 221979646,
+    "person": 67326424,
+    "car": 386328286,
+    "traffic_sign": 30448193,
+    "bicycle": 22861233
+   },
+   "images_with": {
+    "background": 2975,
+    "road": 2934,
+    "building": 2934,
+    "vegetation": 2891,
+    "sky": 2686,
+    "person": 2343,
+    "car": 2832,
+    "traffic_sign": 2808,
+    "bicycle": 1646
+   },
+   "pixel_share": {
+    "background": 0.213695,
+    "road": 0.3264,
+    "building": 0.202057,
+    "vegetation": 0.141013,
+    "sky": 0.035579,
+    "person": 0.010791,
+    "car": 0.061921,
+    "traffic_sign": 0.00488,
+    "bicycle": 0.003664
+   }
+  },
+  "val": {
+   "n_images": 500,
+   "cities": {
+    "frankfurt": 267,
+    "lindau": 59,
+    "munster": 174
+   },
+   "pixels": {
+    "background": 228425286,
+    "road": 345264442,
+    "building": 201005428,
+    "vegetation": 158868008,
+    "sky": 30765347,
+    "person": 11913424,
+    "car": 59731217,
+    "traffic_sign": 6098373,
+    "bicycle": 6504475
+   },
+   "images_with": {
+    "background": 500,
+    "road": 484,
+    "building": 491,
+    "vegetation": 486,
+    "sky": 442,
+    "person": 402,
+    "car": 479,
+    "traffic_sign": 473,
+    "bicycle": 345
+   },
+   "pixel_share": {
+    "background": 0.217843,
+    "road": 0.32927,
+    "building": 0.191694,
+    "vegetation": 0.151508,
+    "sky": 0.02934,
+    "person": 0.011362,
+    "car": 0.056964,
+    "traffic_sign": 0.005816,
+    "bicycle": 0.006203
+   }
+  },
+  "test": {
+   "n_images": 1525,
+   "cities": {
+    "berlin": 544,
+    "bielefeld": 181,
+    "bonn": 46,
+    "leverkusen": 58,
+    "mainz": 298,
+    "munich": 398
+   }
+  }
+ },
+ "samples": [
+  {
+   "id": "frankfurt_000001_055387",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_055387_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_055387_mask.png",
+   "class_share": {
+    "background": 0.19476,
+    "road": 0.34082,
+    "building": 0.25647,
+    "vegetation": 0.10563,
+    "sky": 0.0,
+    "person": 0.01995,
+    "car": 0.00279,
+    "traffic_sign": 0.00512,
+    "bicycle": 0.07447
+   }
+  },
+  {
+   "id": "frankfurt_000001_066574",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_066574_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_066574_mask.png",
+   "class_share": {
+    "background": 0.2526,
+    "road": 0.32746,
+    "building": 0.17629,
+    "vegetation": 0.16462,
+    "sky": 0.0,
+    "person": 0.01135,
+    "car": 0.00466,
+    "traffic_sign": 0.04996,
+    "bicycle": 0.01305
+   }
+  },
+  {
+   "id": "frankfurt_000001_013016",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_013016_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_013016_mask.png",
+   "class_share": {
+    "background": 0.1632,
+    "road": 0.3191,
+    "building": 0.24723,
+    "vegetation": 0.02122,
+    "sky": 0.02205,
+    "person": 0.19786,
+    "car": 0.00974,
+    "traffic_sign": 0.00658,
+    "bicycle": 0.01303
+   }
+  },
+  {
+   "id": "frankfurt_000001_047178",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_047178_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_047178_mask.png",
+   "class_share": {
+    "background": 0.12463,
+    "road": 0.25969,
+    "building": 0.10238,
+    "vegetation": 0.16926,
+    "sky": 0.03134,
+    "person": 0.0,
+    "car": 0.30486,
+    "traffic_sign": 0.00709,
+    "bicycle": 0.00075
+   }
+  },
+  {
+   "id": "frankfurt_000000_009688",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000000_009688_image.png",
+   "mask": "samples/frankfurt/frankfurt_000000_009688_mask.png",
+   "class_share": {
+    "background": 0.32762,
+    "road": 0.30902,
+    "building": 0.09088,
+    "vegetation": 0.03794,
+    "sky": 0.23122,
+    "person": 0.00153,
+    "car": 0.0,
+    "traffic_sign": 0.0,
+    "bicycle": 0.00179
+   }
+  },
+  {
+   "id": "frankfurt_000001_051516",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_051516_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_051516_mask.png",
+   "class_share": {
+    "background": 0.27964,
+    "road": 0.23724,
+    "building": 0.0,
+    "vegetation": 0.47525,
+    "sky": 0.0,
+    "person": 0.00266,
+    "car": 0.0,
+    "traffic_sign": 0.00521,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "frankfurt_000001_055172",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_055172_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_055172_mask.png",
+   "class_share": {
+    "background": 0.17494,
+    "road": 0.27425,
+    "building": 0.3917,
+    "vegetation": 0.0,
+    "sky": 0.0,
+    "person": 0.14214,
+    "car": 0.0,
+    "traffic_sign": 0.00812,
+    "bicycle": 0.00885
+   }
+  },
+  {
+   "id": "frankfurt_000001_057478",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_057478_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_057478_mask.png",
+   "class_share": {
+    "background": 0.17172,
+    "road": 0.47516,
+    "building": 0.16771,
+    "vegetation": 0.11285,
+    "sky": 0.004,
+    "person": 0.05196,
+    "car": 0.01273,
+    "traffic_sign": 0.00261,
+    "bicycle": 0.00125
+   }
+  },
+  {
+   "id": "frankfurt_000001_011835",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_011835_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_011835_mask.png",
+   "class_share": {
+    "background": 0.26931,
+    "road": 0.18597,
+    "building": 0.24751,
+    "vegetation": 0.11559,
+    "sky": 0.00869,
+    "person": 0.14564,
+    "car": 0.00076,
+    "traffic_sign": 0.00916,
+    "bicycle": 0.01737
+   }
+  },
+  {
+   "id": "frankfurt_000001_049698",
+   "city": "frankfurt",
+   "image": "samples/frankfurt/frankfurt_000001_049698_image.png",
+   "mask": "samples/frankfurt/frankfurt_000001_049698_mask.png",
+   "class_share": {
+    "background": 0.3122,
+    "road": 0.23541,
+    "building": 0.01567,
+    "vegetation": 0.24754,
+    "sky": 0.00578,
+    "person": 0.15632,
+    "car": 0.02128,
+    "traffic_sign": 0.0052,
+    "bicycle": 0.00059
+   }
+  },
+  {
+   "id": "lindau_000031_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000031_000019_image.png",
+   "mask": "samples/lindau/lindau_000031_000019_mask.png",
+   "class_share": {
+    "background": 0.22999,
+    "road": 0.34866,
+    "building": 0.24864,
+    "vegetation": 0.13697,
+    "sky": 0.00036,
+    "person": 0.0,
+    "car": 0.0,
+    "traffic_sign": 0.0,
+    "bicycle": 0.03539
+   }
+  },
+  {
+   "id": "lindau_000014_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000014_000019_image.png",
+   "mask": "samples/lindau/lindau_000014_000019_mask.png",
+   "class_share": {
+    "background": 0.20148,
+    "road": 0.25479,
+    "building": 0.23923,
+    "vegetation": 0.17964,
+    "sky": 0.01066,
+    "person": 0.00088,
+    "car": 0.06569,
+    "traffic_sign": 0.04764,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "lindau_000025_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000025_000019_image.png",
+   "mask": "samples/lindau/lindau_000025_000019_mask.png",
+   "class_share": {
+    "background": 0.09934,
+    "road": 0.24695,
+    "building": 0.45242,
+    "vegetation": 0.14319,
+    "sky": 0.0,
+    "person": 0.03316,
+    "car": 0.02364,
+    "traffic_sign": 0.0013,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "lindau_000044_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000044_000019_image.png",
+   "mask": "samples/lindau/lindau_000044_000019_mask.png",
+   "class_share": {
+    "background": 0.40934,
+    "road": 0.0,
+    "building": 0.40889,
+    "vegetation": 0.02914,
+    "sky": 0.0,
+    "person": 0.0,
+    "car": 0.15264,
+    "traffic_sign": 0.0,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "lindau_000013_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000013_000019_image.png",
+   "mask": "samples/lindau/lindau_000013_000019_mask.png",
+   "class_share": {
+    "background": 0.24481,
+    "road": 0.31398,
+    "building": 0.00195,
+    "vegetation": 0.21298,
+    "sky": 0.2065,
+    "person": 0.01453,
+    "car": 0.00525,
+    "traffic_sign": 0.0,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "lindau_000058_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000058_000019_image.png",
+   "mask": "samples/lindau/lindau_000058_000019_mask.png",
+   "class_share": {
+    "background": 0.15272,
+    "road": 0.36931,
+    "building": 0.0,
+    "vegetation": 0.47081,
+    "sky": 0.00205,
+    "person": 0.0,
+    "car": 0.0048,
+    "traffic_sign": 0.00032,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "lindau_000040_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000040_000019_image.png",
+   "mask": "samples/lindau/lindau_000040_000019_mask.png",
+   "class_share": {
+    "background": 0.35683,
+    "road": 0.0,
+    "building": 0.63564,
+    "vegetation": 0.00282,
+    "sky": 0.0,
+    "person": 0.0,
+    "car": 0.0,
+    "traffic_sign": 0.00471,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "lindau_000039_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000039_000019_image.png",
+   "mask": "samples/lindau/lindau_000039_000019_mask.png",
+   "class_share": {
+    "background": 0.08673,
+    "road": 0.43268,
+    "building": 0.30974,
+    "vegetation": 0.09115,
+    "sky": 0.0,
+    "person": 0.0,
+    "car": 0.07929,
+    "traffic_sign": 0.00041,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "lindau_000024_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000024_000019_image.png",
+   "mask": "samples/lindau/lindau_000024_000019_mask.png",
+   "class_share": {
+    "background": 0.18913,
+    "road": 0.37271,
+    "building": 0.3496,
+    "vegetation": 0.01941,
+    "sky": 0.00735,
+    "person": 0.02346,
+    "car": 0.01977,
+    "traffic_sign": 0.00713,
+    "bicycle": 0.01144
+   }
+  },
+  {
+   "id": "lindau_000053_000019",
+   "city": "lindau",
+   "image": "samples/lindau/lindau_000053_000019_image.png",
+   "mask": "samples/lindau/lindau_000053_000019_mask.png",
+   "class_share": {
+    "background": 0.33171,
+    "road": 0.15835,
+    "building": 0.0,
+    "vegetation": 0.45682,
+    "sky": 0.0,
+    "person": 0.0005,
+    "car": 0.02771,
+    "traffic_sign": 0.02491,
+    "bicycle": 0.0
+   }
+  },
+  {
+   "id": "munster_000139_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000139_000019_image.png",
+   "mask": "samples/munster/munster_000139_000019_mask.png",
+   "class_share": {
+    "background": 0.15641,
+    "road": 0.30038,
+    "building": 0.38057,
+    "vegetation": 0.00256,
+    "sky": 0.01044,
+    "person": 0.02215,
+    "car": 0.02101,
+    "traffic_sign": 0.0093,
+    "bicycle": 0.09719
+   }
+  },
+  {
+   "id": "munster_000159_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000159_000019_image.png",
+   "mask": "samples/munster/munster_000159_000019_mask.png",
+   "class_share": {
+    "background": 0.29126,
+    "road": 0.27682,
+    "building": 0.11274,
+    "vegetation": 0.18382,
+    "sky": 0.08612,
+    "person": 0.00141,
+    "car": 0.01925,
+    "traffic_sign": 0.0261,
+    "bicycle": 0.00248
+   }
+  },
+  {
+   "id": "munster_000046_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000046_000019_image.png",
+   "mask": "samples/munster/munster_000046_000019_mask.png",
+   "class_share": {
+    "background": 0.17905,
+    "road": 0.30403,
+    "building": 0.32775,
+    "vegetation": 0.0317,
+    "sky": 0.03929,
+    "person": 0.08227,
+    "car": 0.00456,
+    "traffic_sign": 0.00729,
+    "bicycle": 0.02405
+   }
+  },
+  {
+   "id": "munster_000098_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000098_000019_image.png",
+   "mask": "samples/munster/munster_000098_000019_mask.png",
+   "class_share": {
+    "background": 0.06646,
+    "road": 0.24825,
+    "building": 0.28687,
+    "vegetation": 0.0579,
+    "sky": 0.01096,
+    "person": 0.00133,
+    "car": 0.32159,
+    "traffic_sign": 0.00215,
+    "bicycle": 0.0045
+   }
+  },
+  {
+   "id": "munster_000126_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000126_000019_image.png",
+   "mask": "samples/munster/munster_000126_000019_mask.png",
+   "class_share": {
+    "background": 0.13216,
+    "road": 0.41829,
+    "building": 0.13262,
+    "vegetation": 0.13225,
+    "sky": 0.17193,
+    "person": 0.0,
+    "car": 0.00546,
+    "traffic_sign": 0.00389,
+    "bicycle": 0.00339
+   }
+  },
+  {
+   "id": "munster_000116_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000116_000019_image.png",
+   "mask": "samples/munster/munster_000116_000019_mask.png",
+   "class_share": {
+    "background": 0.09898,
+    "road": 0.3055,
+    "building": 0.00251,
+    "vegetation": 0.52087,
+    "sky": 0.0239,
+    "person": 0.00268,
+    "car": 0.04281,
+    "traffic_sign": 0.00033,
+    "bicycle": 0.00243
+   }
+  },
+  {
+   "id": "munster_000149_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000149_000019_image.png",
+   "mask": "samples/munster/munster_000149_000019_mask.png",
+   "class_share": {
+    "background": 0.16779,
+    "road": 0.28758,
+    "building": 0.44622,
+    "vegetation": 0.00042,
+    "sky": 0.00397,
+    "person": 0.02787,
+    "car": 0.03559,
+    "traffic_sign": 0.00437,
+    "bicycle": 0.02617
+   }
+  },
+  {
+   "id": "munster_000155_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000155_000019_image.png",
+   "mask": "samples/munster/munster_000155_000019_mask.png",
+   "class_share": {
+    "background": 0.10468,
+    "road": 0.48871,
+    "building": 0.28361,
+    "vegetation": 0.09653,
+    "sky": 0.00252,
+    "person": 0.00847,
+    "car": 0.00517,
+    "traffic_sign": 0.00295,
+    "bicycle": 0.00736
+   }
+  },
+  {
+   "id": "munster_000141_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000141_000019_image.png",
+   "mask": "samples/munster/munster_000141_000019_mask.png",
+   "class_share": {
+    "background": 0.1276,
+    "road": 0.32812,
+    "building": 0.37837,
+    "vegetation": 0.0,
+    "sky": 0.0,
+    "person": 0.05956,
+    "car": 0.01261,
+    "traffic_sign": 0.00218,
+    "bicycle": 0.09156
+   }
+  },
+  {
+   "id": "munster_000167_000019",
+   "city": "munster",
+   "image": "samples/munster/munster_000167_000019_image.png",
+   "mask": "samples/munster/munster_000167_000019_mask.png",
+   "class_share": {
+    "background": 0.22041,
+    "road": 0.28763,
+    "building": 0.07753,
+    "vegetation": 0.2097,
+    "sky": 0.07805,
+    "person": 0.03627,
+    "car": 0.01436,
+    "traffic_sign": 0.00067,
+    "bicycle": 0.07537
+   }
+  }
+ ]
+}
