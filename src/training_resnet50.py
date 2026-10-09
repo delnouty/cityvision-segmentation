@@ -5,8 +5,6 @@ import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
-import mlflow
-import mlflow.pytorch
 
 sys.path.insert(0, os.path.dirname(__file__))
 from dataloader import create_dataloaders
@@ -157,6 +155,10 @@ def validate(model, loader, device):
 
 
 def main():
+    # Imported here, not at module level: inference code (PoC app, cloud image)
+    # imports this module for its helpers and must not need MLflow.
+    import mlflow
+
     if torch.cuda.is_available():
         device = "cuda"
         print("Device:", torch.cuda.get_device_name(0))

@@ -20,12 +20,11 @@ import os
 import sys
 from itertools import islice
 
-import mlflow
 import numpy as np
 import torch
 import torch.nn.functional as F
 from tqdm import tqdm
-from transformers import Mask2FormerForUniversalSegmentation
+from transformers import Mask2FormerConfig, Mask2FormerForUniversalSegmentation
 
 sys.path.insert(0, os.path.dirname(__file__))
 from dataloader import create_dataloaders  # noqa: E402
@@ -36,6 +35,14 @@ from cityvision.constants import CLASS_NAMES, NUM_CLASSES  # noqa: E402
 from cityvision.models import remap_mask  # noqa: E402
 
 PRETRAINED = "facebook/mask2former-swin-tiny-ade-semantic"
+# 9-class config of PRETRAINED, bundled (scripts/export_hf_configs.py)
+CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "cityvision",
+    "hf_configs",
+    "mask2former_swint.json",
+)
 
 
 # ============================================================
@@ -51,6 +58,17 @@ def build_model(pretrained=PRETRAINED):
         id2label=dict(enumerate(CLASS_NAMES)),
         label2id={n: i for i, n in enumerate(CLASS_NAMES)},
         ignore_mismatched_sizes=True,  # class_predictor 151 -> 10 outputs
+    )
+
+
+def build_model_from_config(config_path=CONFIG_PATH):
+    """
+    Architecture only, randomly initialised, no download: for loading a
+    trained checkpoint (evaluation, app, deployment). Training uses
+    build_model(), which needs the pretrained weights.
+    """
+    return Mask2FormerForUniversalSegmentation(
+        Mask2FormerConfig.from_json_file(config_path)
     )
 
 
@@ -242,6 +260,10 @@ def parse_args():
 
 
 def main():
+    # Imported here, not at module level: inference code (PoC app, cloud image)
+    # imports this module for its helpers and must not need MLflow.
+    import mlflow
+
     args = parse_args()
 
     if torch.cuda.is_available():

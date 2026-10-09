@@ -79,14 +79,16 @@ def _load_resnet50(path):
     return model
 
 
+# Transformers are built from the bundled configs (no Hub download): the
+# checkpoint provides every weight, and load_state_dict is strict.
 def _load_mask2former(path):
-    model = training_mask2former.build_model()
+    model = training_mask2former.build_model_from_config()
     model.load_state_dict(torch.load(path, map_location="cpu"))
     return model
 
 
 def _load_eomt(path):
-    model = training_eomt.build_model()
+    model = training_eomt.build_model_from_config()
     model.load_state_dict(torch.load(path, map_location="cpu"))
     model.attn_mask_probs.zero_()  # mask-free inference, as deployed
     return model

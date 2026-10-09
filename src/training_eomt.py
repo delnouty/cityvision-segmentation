@@ -22,12 +22,11 @@ import math
 import os
 import sys
 
-import mlflow
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import EomtForUniversalSegmentation
+from transformers import EomtConfig, EomtForUniversalSegmentation
 
 sys.path.insert(0, os.path.dirname(__file__))
 from dataloader import create_dataloaders  # noqa: E402
@@ -38,6 +37,10 @@ from cityvision.constants import CLASS_NAMES, NUM_CLASSES  # noqa: E402
 
 PRETRAINED = "tue-mps/coco_panoptic_eomt_base_640_2x"
 IMG_SIZE = (512, 1024)
+# 9-class config of PRETRAINED, bundled (scripts/export_hf_configs.py)
+CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "cityvision", "hf_configs", "eomt_base.json"
+)
 
 
 # ============================================================
@@ -77,6 +80,19 @@ def build_model(pretrained=PRETRAINED):
         label2id={n: i for i, n in enumerate(CLASS_NAMES)},
         ignore_mismatched_sizes=True,  # class_predictor 134 -> 10 outputs
     )
+    patch = model.config.patch_size
+    _resize_position_embeddings(model, (IMG_SIZE[0] // patch, IMG_SIZE[1] // patch))
+    return model
+
+
+def build_model_from_config(config_path=CONFIG_PATH):
+    """
+    Architecture only, randomly initialised, no download: for loading a
+    trained checkpoint (evaluation, app, deployment). The position-embedding
+    resize gives the 32x64 grid the checkpoint expects; its values are then
+    overwritten by load_state_dict. Training uses build_model().
+    """
+    model = EomtForUniversalSegmentation(EomtConfig.from_json_file(config_path))
     patch = model.config.patch_size
     _resize_position_embeddings(model, (IMG_SIZE[0] // patch, IMG_SIZE[1] // patch))
     return model
@@ -225,6 +241,10 @@ def parse_args():
 
 
 def main():
+    # Imported here, not at module level: inference code (PoC app, cloud image)
+    # imports this module for its helpers and must not need MLflow.
+    import mlflow
+
     args = parse_args()
 
     if torch.cuda.is_available():

@@ -1,38 +1,34 @@
-"""Model comparison page: same data as dashboard/poc.html (evaluate_poc.py + MLflow)."""
+"""
+Model comparison page. Reads poc_app/data/poc_results.json (evaluation results +
+training curves), written by scripts/build_poc_dashboard.py: the same data as
+dashboard/poc.html, bundled so the cloud app needs neither results/ nor mlflow.db.
+"""
 
 import json
 import os
-import sqlite3
 
 import altair as alt
 import common
 import pandas as pd
 import streamlit as st
-from build_poc_dashboard import build
 
-COMP_PATH = os.path.join(common.ROOT, "results", "poc_comparison.json")
-DB_PATH = os.path.join(common.ROOT, "mlflow.db")
+RESULTS_PATH = os.path.join(common.DATA_DIR, "poc_results.json")
 
 
 @st.cache_data(show_spinner=False)
 def load(mtime):
-    with open(COMP_PATH, encoding="utf-8") as f:
-        comparison = json.load(f)
-    conn = sqlite3.connect(DB_PATH) if os.path.exists(DB_PATH) else None
-    try:
-        return build(comparison, conn)
-    finally:
-        if conn:
-            conn.close()
+    with open(RESULTS_PATH, encoding="utf-8") as f:
+        return json.load(f)
 
 
 st.title("Model comparison")
-if not os.path.exists(COMP_PATH):
+if not os.path.exists(RESULTS_PATH):
     st.error(
-        "No results yet. Run `python scripts/evaluate_poc.py` once (about 5 minutes on GPU)."
+        "No results bundled yet. Run `python scripts/evaluate_poc.py` (about 5 minutes on "
+        "GPU), then `python scripts/build_poc_dashboard.py`."
     )
     st.stop()
-data = load(os.path.getmtime(COMP_PATH))
+data = load(os.path.getmtime(RESULTS_PATH))
 M = data["models"]
 names = [m["name"] for m in M]
 by = {m["name"]: m for m in M}

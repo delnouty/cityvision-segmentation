@@ -2,7 +2,9 @@
 scripts/build_poc_dashboard.py
 ==============================
 
-Refreshes the data of the proof-of-concept dashboard (``dashboard/poc.html``).
+Refreshes the data of the proof-of-concept dashboards: the static page
+``dashboard/poc.html`` and the PoC app's ``poc_app/data/poc_results.json``
+(read by its "Model comparison" page, also in the cloud).
 
 The page is a self-contained HTML file; its numbers live in one JSON block
 between the markers ``/*POC_DATA_BEGIN*/`` and ``/*POC_DATA_END*/``. This
@@ -177,6 +179,7 @@ def main():
     p.add_argument("--comparison", default="results/poc_comparison.json")
     p.add_argument("--mlflow-db", default="mlflow.db")
     p.add_argument("--page", default="dashboard/poc.html")
+    p.add_argument("--app-data", default="poc_app/data/poc_results.json")
     args = p.parse_args()
 
     comp_path = os.path.join(ROOT, args.comparison)
@@ -202,8 +205,15 @@ def main():
     with open(page_path, "w", encoding="utf-8", newline="\n") as f:
         f.write(page)
 
+    # Same data for the PoC app, so the deployed app needs neither results/
+    # nor mlflow.db
+    app_path = os.path.join(ROOT, args.app_data)
+    with open(app_path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+
     print(
-        f"Updated {args.page}: {len(data['models'])} models, {len(data['comparisons'])} comparisons"
+        f"Updated {args.page} and {args.app_data}: {len(data['models'])} models, "
+        f"{len(data['comparisons'])} comparisons"
     )
     for m in data["models"]:
         c = m["curves"]

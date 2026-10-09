@@ -1,0 +1,177 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.4cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,urlcolor=blue,linkcolor=black,citecolor=black]{hyperref}
+\usepackage{parskip}
+
+\setlist{leftmargin=1.5em,itemsep=2pt,topsep=4pt}
+
+\title{\textbf{CityVision --- Plan prévisionnel}\\[2pt]
+\large Preuve de concept : segmentation sémantique de scènes urbaines\\
+avec un modèle récent (EoMT)}
+\author{Darya Filatova}
+\date{}
+
+\begin{document}
+\sloppy
+\maketitle
+
+% =====================================================================
+\section*{Dataset retenu}
+% =====================================================================
+
+\textbf{Cityscapes} \cite{cordts2016} : photos de scènes urbaines prises depuis
+un véhicule dans des villes allemandes et voisines, en $2048\times1024$ pixels,
+annotées pixel par pixel.
+
+\begin{itemize}
+  \item \textbf{Découpage :} 2\,975 images d'entraînement (18 villes), 500 de
+        validation (3 villes) et 1\,525 de test, dont les labels ne sont pas
+        publics.
+  \item \textbf{Classes :} pour le projet, les classes Cityscapes sont
+        regroupées en \textbf{9 classes} (fond, route, bâtiment, végétation,
+        ciel, personne, voiture, panneau, vélo).
+  \item \textbf{Résolution :} images ramenées à $512\times1024$.
+  \item \textbf{Déséquilibre :} le jeu est très déséquilibré. Route, fond et
+        bâtiments représentent environ 74\,\% des pixels ; personnes, panneaux
+        et vélos moins de 2\,\% au total, alors que les panneaux apparaissent
+        dans 94\,\% des images.
+\end{itemize}
+
+C'est le jeu de données de référence du projet : le modèle actuel (baseline) y
+a été entraîné.
+
+% =====================================================================
+\section*{Modèle envisagé}
+% =====================================================================
+
+\textbf{Algorithme : EoMT} (\emph{Encoder-only Mask Transformer},
+Kerssies et al., CVPR~2025) \cite{kerssies2025vitsecretlyimagesegmentation},
+avec \textbf{Mask2Former} (Cheng et al., CVPR~2022) \cite{cheng2022} comme étape
+intermédiaire.
+
+\subsection*{Objectif et contexte}
+
+La segmentation sémantique, c'est-à-dire attribuer une classe à chaque pixel
+d'une image. C'est la base de la perception visuelle des véhicules autonomes et
+des systèmes d'aide à la conduite, où il faut savoir précisément où sont la
+route, les piétons ou les panneaux, idéalement en temps réel.
+
+\subsection*{Arguments justifiant le choix}
+
+\begin{itemize}
+  \item \textbf{Un changement de paradigme.} La baseline (U-Net + ResNet50)
+        classe chaque pixel indépendamment. Mask2Former puis EoMT prédisent un
+        \textbf{ensemble de masques, chacun associé à une classe}. Cette
+        formulation a donné l'état de l'art à sa publication sur COCO, ADE20K
+        et Cityscapes, en segmentation sémantique, d'instance et panoptique
+        \cite{cheng2022}.
+  \item \textbf{Un gain attendu sur les petits objets.} Chaque masque couvre un
+        objet entier, ce qui devrait aider sur les classes rares de notre jeu
+        (personne, panneau, vélo), là où la baseline est la plus faible.
+  \item \textbf{La simplicité et la vitesse d'EoMT.} EoMT montre qu'un Vision
+        Transformer simple, pré-entraîné à grande échelle (DINOv2), suffit pour
+        segmenter, sans les décodeurs spécialisés de Mask2Former. Les auteurs
+        annoncent une précision comparable aux méthodes de l'état de l'art,
+        jusqu'à \textbf{4$\times$ plus rapide} avec un ViT-L
+        \cite{kerssies2025vitsecretlyimagesegmentation}. C'est un critère
+        important pour une utilisation embarquée ou via une API.
+  \item \textbf{La faisabilité.} Le code officiel est publié sous licence MIT,
+        et les deux modèles sont intégrés à Hugging Face Transformers avec des
+        poids pré-entraînés.
+\end{itemize}
+
+% =====================================================================
+\section*{Références bibliographiques}
+% =====================================================================
+
+\renewcommand{\refname}{\vspace{-2.2em}}
+\begin{thebibliography}{9}
+\bibitem{cheng2022} B.~Cheng, I.~Misra, A.~G.~Schwing, A.~Kirillov,
+  R.~Girdhar, \emph{Masked-attention Mask Transformer for Universal Image
+  Segmentation}, CVPR 2022. arXiv:2112.01527,
+  \url{https://arxiv.org/abs/2112.01527}.\\
+  Cette référence introduit la classification de masques avec attention
+  masquée, base de la méthode.
+\bibitem{kerssies2025vitsecretlyimagesegmentation} T.~Kerssies, N.~Cavagnero,
+  A.~Hermans, N.~Norouzi, G.~Averta, B.~Leibe, G.~Dubbelman, D.~de~Geus,
+  \emph{Your ViT is Secretly an Image Segmentation Model}, 2025.
+  arXiv:2503.19108 [cs.CV], \url{https://arxiv.org/abs/2503.19108}.
+  Code : \url{https://github.com/tue-mps/eomt} (licence MIT).\\
+  C'est l'algorithme mis en œuvre.
+\bibitem{cordts2016} M.~Cordts et al., \emph{The Cityscapes Dataset for
+  Semantic Urban Scene Understanding}, CVPR 2016. arXiv:1604.01685,
+  \url{https://arxiv.org/abs/1604.01685}.\\
+  C'est la référence du jeu de données et de son protocole d'évaluation.
+\end{thebibliography}
+
+\subsection*{Réutilisation de code}
+
+\begin{itemize}
+  \item implémentations Hugging Face Transformers
+        (\texttt{Mask2Former\allowbreak For\allowbreak Universal\allowbreak Segmentation},
+        \texttt{Eomt\allowbreak For\allowbreak Universal\allowbreak Segmentation}) ;
+  \item dépôt officiel EoMT, dont je reprends la recette d'entraînement :
+        décroissance du taux d'apprentissage par couche, \emph{warm-up} en deux
+        temps, \emph{mask annealing}.
+\end{itemize}
+
+L'application est originale : le jeu de données (Cityscapes ramené à
+9 classes, en $512\times1024$), le pipeline de données, l'évaluation et
+l'interface sont propres au projet.
+
+% =====================================================================
+\section*{Démarche de test du nouvel algorithme (preuve de concept)}
+% =====================================================================
+
+\subsection*{Baseline}
+
+\begin{itemize}
+  \item le modèle actuel du projet, \textbf{ResNet50-UNet} (encodeur
+        pré-entraîné sur ImageNet) ;
+  \item entraîné 20 époques avec une perte cross-entropie + Dice pondérée ;
+  \item mesuré par la \textbf{mIoU} (moyenne sur les classes de l'IoU,
+        intersection sur union) sur les 500 images de validation.
+\end{itemize}
+
+\subsection*{Mise en œuvre}
+
+\begin{enumerate}
+  \item \textbf{Mask2Former (Swin-Tiny, pré-entraîné sur ADE20K), puis EoMT
+        (ViT-B DINOv2, pré-entraîné sur COCO)}, ré-entraînés sur nos 9 classes
+        \textbf{dans les mêmes conditions que la baseline} : mêmes images, même
+        résolution, même métrique, même budget (20 époques, batch effectif
+        de 4, arrêt anticipé). Chaque modèle garde sa recette d'entraînement
+        publiée. Aucun point de départ n'a vu Cityscapes.
+  \item \textbf{Comparaison :}
+        \begin{itemize}
+          \item mIoU et IoU par classe, en particulier sur les petites classes ;
+          \item temps d'inférence par image et nombre de paramètres ;
+          \item un \textbf{bootstrap apparié} sur les images de validation,
+                pour vérifier que l'écart n'est pas dû au hasard (intervalle de
+                confiance à 95\,\%).
+        \end{itemize}
+  \item \textbf{Interface de démonstration (Streamlit) :}
+        \begin{itemize}
+          \item exploration du jeu de données : comptages, exemples par ville
+                et par classe, transformations d'images ;
+          \item \textbf{choix d'une image et d'un modèle, puis affichage du
+                masque prédit} à côté du vrai masque, avec les scores sur
+                l'image ;
+          \item tableau de comparaison des trois modèles ;
+          \item prise en compte des critères d'accessibilité WCAG essentiels.
+        \end{itemize}
+\end{enumerate}
+
+\subsection*{Critère de succès}
+
+EoMT dépasse la mIoU de la baseline de façon statistiquement significative,
+avec un temps d'inférence compatible avec une utilisation via l'API du projet.
+
+\end{document}
