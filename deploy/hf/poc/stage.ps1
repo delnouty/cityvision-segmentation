@@ -26,10 +26,24 @@ foreach ($f in @("poc_app\data\eda_stats.json", "poc_app\data\poc_results.json")
 
 New-Item -ItemType Directory -Force $Target | Out-Null
 
-# Space files (Dockerfile, README with the Space header, LFS rules) go at the root
-foreach ($f in @("Dockerfile", "README.md", ".gitattributes")) {
+# Space files (Dockerfile, README with the Space header) go at the root
+foreach ($f in @("Dockerfile", "README.md")) {
     Copy-Item (Join-Path $PSScriptRoot $f) (Join-Path $Target $f) -Force
 }
+
+# LFS rules: keep the Space's own .gitattributes (HF creates one with ~35
+# rules) and only append ours that are missing (*.pth, *.png)
+$attrTarget = Join-Path $Target ".gitattributes"
+$existing = if (Test-Path $attrTarget) { Get-Content $attrTarget } else { @() }
+$added = @()
+foreach ($rule in Get-Content (Join-Path $PSScriptRoot ".gitattributes")) {
+    $pattern = ($rule -split "\s+")[0]
+    if (-not ($existing | Where-Object { ($_ -split "\s+")[0] -eq $pattern })) {
+        Add-Content -Path $attrTarget -Value $rule -Encoding utf8
+        $added += $pattern
+    }
+}
+if ($added) { "LFS rules added to .gitattributes: $($added -join ', ')" }
 
 # Code + data folders (without caches)
 foreach ($d in @("cityvision", "src", "poc_app")) {

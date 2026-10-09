@@ -31,8 +31,8 @@ cd ..\CityVision
 .\deploy\hf\poc\stage.ps1 -Target C:\Users\DFILATOVA\Desktop\hf-poc
 ```
 
-`stage.ps1` writes `.gitattributes` first, so `*.pth` and `*.png` are routed
-through Git LFS.
+`stage.ps1` keeps the Space's own `.gitattributes` (created by Hugging Face)
+and only adds the missing LFS rules, so `*.pth` and `*.png` go through Git LFS.
 
 ## 2b. Optional: test the image locally first (Docker Desktop running)
 
