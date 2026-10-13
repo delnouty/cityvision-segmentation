@@ -14,6 +14,7 @@ are untouched.
 | `notebooks/training_segnet.ipynb` | https://github.com/delnouty/cityvision-segmentation/blob/main/notebook_env/notebooks/training_segnet.ipynb |
 | `notebooks/training_comparison.ipynb` | https://github.com/delnouty/cityvision-segmentation/blob/main/notebook_env/notebooks/training_comparison.ipynb |
 | `notebooks/training_augmented.ipynb` | https://github.com/delnouty/cityvision-segmentation/blob/main/notebook_env/notebooks/training_augmented.ipynb |
+| `notebooks/poc_entrainement.ipynb` | https://github.com/delnouty/cityvision-segmentation/blob/main/notebook_env/notebooks/poc_entrainement.ipynb |
 
 Clone just this folder:
 
@@ -31,6 +32,7 @@ notebook_env/
     training_segnet.ipynb      copies of the three training notebooks
     training_comparison.ipynb
     training_augmented.ipynb
+    poc_entrainement.ipynb     proof of concept: baseline + Mask2Former + EoMT (in French)
 ```
 
 ## Why only one Python file

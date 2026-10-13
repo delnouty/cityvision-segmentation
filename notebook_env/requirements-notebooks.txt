@@ -22,6 +22,11 @@ pillow==12.2.0
 # Experiment tracking — the notebooks log to sqlite:///mlflow.db
 mlflow==2.22.5
 
+# Proof of concept (poc_entrainement.ipynb): Mask2Former / EoMT, tables, Hungarian matching
+transformers==5.17.0
+scipy==1.15.3
+pandas==2.3.3
+
 # Visualization & progress
 matplotlib==3.10.9
 tqdm==4.68.2

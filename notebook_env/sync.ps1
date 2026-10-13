@@ -35,6 +35,7 @@ $files = [ordered]@{
     'notebooks/training_segnet.ipynb'     = 'notebooks/training_segnet.ipynb'
     'notebooks/training_comparison.ipynb' = 'notebooks/training_comparison.ipynb'
     'notebooks/training_augmented.ipynb'  = 'notebooks/training_augmented.ipynb'
+    'notebooks/poc_entrainement.ipynb'    = 'notebooks/poc_entrainement.ipynb'
     'src/dataloader.py'                   = 'src/dataloader.py'
 }
 
