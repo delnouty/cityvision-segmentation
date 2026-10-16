@@ -1,0 +1,20 @@
+<section id="demo" data-transition="fade" style="background:#EBEEF1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Démonstration</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Le dashboard, déployé sur le cloud</h2>
+</div>
+<div style="display:flex;gap:48px;flex:1">
+<div style="flex:1;display:flex;flex-direction:column;gap:24px">
+<p style="font-size:24px;font-weight:600;color:#0F7B5F">huggingface.co/spaces/DaryaEL/cityvision-poc</p>
+<ol style="font-size:28px;line-height:1.45;color:#15202E">
+<li><b>Dataset</b> : comptages, exemples par ville et par classe, égalisation, CLAHE, flou</li>
+<li><b>Prediction</b> : choix d'une image et d'un modèle, masque prédit et scores</li>
+<li><b>Model comparison</b> : précision, vitesse, bootstrap, courbes</li>
+</ol>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">Accessibilité (WCAG) : textes alternatifs, tableau sous chaque graphique, couleurs lisibles par les daltoniens, commandes au clavier.</p>
+</div>
+<img src="/_blob/3705a86f489358f4e9b67f96cd62e4e3" alt="Page Prediction du dashboard : image de Francfort, masque réel et masque prédit par EoMT, avec la légende des classes" style="width:940px;height:529px;object-fit:contain;background:#FFFFFF;border:1px solid #C9CFD6;border-radius:12px">
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 19 / 20 · Streamlit, 3 modèles exécutés sur CPU dans un Space Hugging Face</p>
+<aside>(≈ 4 min 30, démo en direct) Avant la soutenance : ouvrir le dashboard quelques minutes à l'avance pour le réveiller (Space gratuit). 1) Page Dataset : montrer les comptages par ville et par classe, la galerie par classe (choisir « bicycle »), puis une transformation : CLAHE avec le curseur, et l'histogramme avant / après. 2) Page Prediction : choisir une image, modèle EoMT, cliquer Predict ; commenter le masque prédit face au vrai masque et le tableau par classe ; puis activer « Compare all models » pour voir les trois côte à côte (≈ 10 s sur CPU). 3) Page Model comparison : le graphique précision / vitesse et les intervalles du bootstrap. Mentionner l'accessibilité : chaque image a un texte alternatif, chaque graphique un tableau. En cas de problème réseau, cette capture sert de secours.</aside>
+</section>

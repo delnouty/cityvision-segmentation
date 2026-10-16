@@ -1,0 +1,32 @@
+<section id="sources" data-transition="fade" style="background:#F6F5F1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Plan prévisionnel · sources</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Trois références de recherche</h2>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;gap:32px;align-items:center;background:#FFFFFF;border:1px solid #DDE1E5;border-left:8px solid #1BAF7A;border-radius:16px;padding:28px 40px">
+<p style="width:220px;font-family:'Space Grotesk', Arial, sans-serif;font-size:32px;font-weight:700;color:#0F7B5F">Algorithme</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:30px;font-weight:600">Your ViT is Secretly an Image Segmentation Model</p>
+<p style="font-size:26px;color:#4A5568">Kerssies et al., 2025 · arXiv:2503.19108 · EoMT, mis en œuvre ici</p>
+</div>
+</div>
+<div style="display:flex;gap:32px;align-items:center;background:#FFFFFF;border:1px solid #DDE1E5;border-left:8px solid #EB6834;border-radius:16px;padding:28px 40px">
+<p style="width:220px;font-family:'Space Grotesk', Arial, sans-serif;font-size:32px;font-weight:700;color:#B5430E">Fondation</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:30px;font-weight:600">Masked-attention Mask Transformer for Universal Image Segmentation</p>
+<p style="font-size:26px;color:#4A5568">Cheng et al., CVPR 2022 · arXiv:2112.01527 · Mask2Former, base d'EoMT</p>
+</div>
+</div>
+<div style="display:flex;gap:32px;align-items:center;background:#FFFFFF;border:1px solid #DDE1E5;border-left:8px solid #2A78D6;border-radius:16px;padding:28px 40px">
+<p style="width:220px;font-family:'Space Grotesk', Arial, sans-serif;font-size:32px;font-weight:700;color:#1D5BA8">Données</p>
+<div style="flex:1;display:flex;flex-direction:column;gap:6px">
+<p style="font-size:30px;font-weight:600">The Cityscapes Dataset for Semantic Urban Scene Understanding</p>
+<p style="font-size:26px;color:#4A5568">Cordts et al., CVPR 2016 · arXiv:1604.01685 · jeu de données et protocole</p>
+</div>
+</div>
+</div>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">Code réutilisé et cité : Hugging Face Transformers et la recette d'entraînement du dépôt EoMT (licence MIT). Données, pipeline, évaluation et dashboard sont propres au projet.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 5 / 20</p>
+<aside>(≈ 1 min) Trois références, toutes des articles de recherche publiés sur arXiv. L'article EoMT de Kerssies et al., 2025, c'est l'algorithme mis en œuvre, avec son code officiel sous licence MIT. L'article Mask2Former de Cheng et al., 2022, qui introduit la classification de masques et l'attention masquée, dont EoMT est une simplification. Et l'article Cityscapes, pour le jeu de données et son protocole. J'ai réutilisé, en le citant, le code Hugging Face et la recette d'entraînement d'EoMT ; l'application, elle, est originale : 9 classes, 512×1024, mon propre pipeline et mon dashboard.</aside>
+</section>

@@ -1,0 +1,36 @@
+<section id="dataset" data-transition="fade" style="background:#F6F5F1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Plan prévisionnel · jeu de données</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Cityscapes, ramené à 9 classes</h2>
+</div>
+<div style="display:flex;gap:64px;flex:1">
+<div style="width:520px;display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:4px;border-left:6px solid #15202E;padding:8px 0 8px 24px">
+<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1">2 975</p>
+<p style="font-size:28px;color:#4A5568">images d'entraînement, 18 villes</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;border-left:6px solid #15202E;padding:8px 0 8px 24px">
+<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1">500</p>
+<p style="font-size:28px;color:#4A5568">images de validation, 3 villes</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:4px;border-left:6px solid #15202E;padding:8px 0 8px 24px">
+<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1">512×1024</p>
+<p style="font-size:28px;color:#4A5568">résolution utilisée (originale 2048×1024)</p>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px">
+<p style="font-size:28px;font-weight:600">Part des pixels par classe (entraînement)</p>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right">route</p><div style="width:620px;height:30px;background:#15202E;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums">32,6 %</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right">fond</p><div style="width:406px;height:30px;background:#15202E;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums">21,4 %</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right">bâtiment</p><div style="width:384px;height:30px;background:#15202E;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums">20,2 %</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right">végétation</p><div style="width:268px;height:30px;background:#15202E;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums">14,1 %</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right">voiture</p><div style="width:118px;height:30px;background:#15202E;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums">6,2 %</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right">ciel</p><div style="width:68px;height:30px;background:#15202E;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums">3,6 %</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right;font-weight:600;color:#B5430E">personne</p><div style="width:21px;height:30px;background:#EB6834;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums;font-weight:600;color:#B5430E">1,1 %</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right;font-weight:600;color:#B5430E">panneau</p><div style="width:10px;height:30px;background:#EB6834;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums;font-weight:600;color:#B5430E">0,5 %, présent dans 94 % des images</p></div>
+<div style="display:flex;align-items:center;gap:16px"><p style="width:200px;font-size:26px;text-align:right;font-weight:600;color:#B5430E">vélo</p><div style="width:8px;height:30px;background:#EB6834;border-radius:4px"></div><p style="font-size:26px;font-variant-numeric:tabular-nums;font-weight:600;color:#B5430E">0,4 %</p></div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 3 / 20 · Source : Cordts et al., 2016 ; statistiques calculées sur les annotations du projet</p>
+<aside>(≈ 1 min) Le jeu de données est celui du projet : Cityscapes, photos prises depuis une voiture dans des villes allemandes. 2 975 images d'entraînement, 500 de validation, toutes annotées pixel par pixel. On garde 9 classes utiles à la conduite et on travaille en 512×1024. Point important : le jeu est très déséquilibré. Route, fond et bâtiments couvrent les trois quarts des pixels ; personnes, panneaux et vélos moins de 2 %. Ce sont pourtant les objets critiques, et les panneaux sont dans presque toutes les images : ce sont de petits objets. C'est là qu'on attend le gain du nouveau modèle. Même jeu de données que la baseline, pour une comparaison directe.</aside>
+</section>

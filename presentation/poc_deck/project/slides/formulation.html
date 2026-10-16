@@ -1,0 +1,27 @@
+<section id="formulation" data-transition="fade" style="background:#F6F5F1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Démarche · concept 1 : la formulation</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Des pixels à un ensemble de masques</h2>
+</div>
+<div style="display:flex;gap:32px">
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #DDE1E5;border-top:8px solid #2A78D6;border-radius:20px;padding:36px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:36px;font-weight:700">Baseline : une décision par pixel</h3>
+<img src="/_blob/6543ec1181b036b1937f4842134bb635" alt="y chapeau de x égale argmax sur les classes c de z indice c de x" style="width:328px;height:51px;object-fit:contain">
+<p style="font-size:26px;line-height:1.4;color:#4A5568">524 288 classifications indépendantes par image.</p>
+</div>
+<div style="flex:1.45;display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border:1px solid #DDE1E5;border-top:8px solid #1BAF7A;border-radius:20px;padding:36px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:36px;font-weight:700">Mask2Former, EoMT : N paires (classe, masque)</h3>
+<img src="/_blob/e1e38f6804dbf0fa09efc2e4d3c33fb9" alt="ensemble des paires p q, m q pour q de 1 à N, avec N égal à 100 ou 200" style="width:546px;height:56px;object-fit:contain">
+<img src="/_blob/f5272cfbe5a4657578a331236ee6b05f" alt="S c de x égale la somme sur q de p q de c fois sigma de m q de x ; y chapeau de x égale argmax sur c de S c de x" style="width:827px;height:109px;object-fit:contain">
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:14px">
+<div style="display:flex;align-items:center;gap:32px">
+<p style="font-size:26px;font-weight:600;color:#15202E;white-space:nowrap">Côté données</p>
+<img src="/_blob/6d2b9a8c1c48a5c6bdaec3a6fdd20ad9" alt="G de y égale l'ensemble des paires c j, g j pour j de 1 à K, où g j de x vaut 1 si y de x égale c j" style="width:730px;height:57px;object-fit:contain">
+</div>
+<img src="/_blob/79701c6f8023a5d72f4a683225d4f185" alt="Les 8 masques binaires d'une image de validation, un par classe présente : fond, route, bâtiment, végétation, ciel, personne, voiture, panneau" style="width:1664px;height:172px;object-fit:contain;background:#FFFFFF;border-radius:8px">
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 7 / 20 · figure du notebook, section 2.6</p>
+<aside>(≈ 1 min) Le premier changement est la formulation du problème. La baseline produit 9 cartes de scores et prend, pour chaque pixel, la classe de score maximal : plus d'un demi‑million de décisions indépendantes. Mask2Former et EoMT prédisent un ensemble fixe de N paires : un vecteur de probabilités p sur les 9 classes plus une classe « aucun objet », et un masque binaire m, en logits, au quart de la résolution. Pour revenir à une carte par pixel, on somme pour chaque classe les masques pondérés par leur probabilité, puis on prend le maximum. Côté données, j'ai converti chaque annotation en un ensemble de masques binaires, un par classe présente, avec sa classe : voici les 8 masques d'une image de validation.</aside>
+</section>

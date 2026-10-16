@@ -1,0 +1,10 @@
+<section id="qualitatif" data-transition="fade" style="background:#F6F5F1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Résultats · exemples</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Contours plus nets, moins de bruit</h2>
+</div>
+<img src="/_blob/31d2d40a3a1ba70017d47dec29efd6e2" alt="Trois images de validation : image, vérité terrain, puis les masques prédits par ResNet50-UNet, Mask2Former et EoMT, avec la mIoU de chaque image" style="width:1664px;height:520px;object-fit:contain;background:#FFFFFF;border-radius:12px">
+<p style="font-size:26px;color:#4A5568">Colonnes : image, vérité terrain, ResNet50‑UNet, Mask2Former, EoMT. La mIoU d'une seule image varie beaucoup : les conclusions viennent des 500 images.</p>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 17 / 20 · figure du notebook, section 7.4</p>
+<aside>(≈ 30 s) Trois exemples tirés du notebook. Sur la première image, la baseline produit des taches de fond parasites au bord de la route et autour des voitures ; les deux transformers rendent des contours plus propres. Les petits objets, panneaux en jaune et piéton en rouge, sont trouvés par tous, mais mieux formés par les transformers. Attention : sur une seule image, le classement peut s'inverser, par exemple Mask2Former est moins bon sur la deuxième. C'est pourquoi les conclusions reposent sur les 500 images et sur le bootstrap.</aside>
+</section>

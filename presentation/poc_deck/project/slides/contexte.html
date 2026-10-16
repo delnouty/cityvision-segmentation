@@ -1,0 +1,20 @@
+<section id="contexte" data-transition="fade" style="background:#F6F5F1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Plan prévisionnel · contexte</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Point de départ : 0,816 de mIoU</h2>
+</div>
+<div style="display:flex;gap:64px;align-items:stretch;flex:1">
+<div style="flex:1.3;display:flex;flex-direction:column;gap:32px;justify-content:center">
+<p style="font-size:32px;line-height:1.45;color:#4A5568">CityVision segmente des photos de rue en <b>9 classes</b> : route, bâtiment, végétation, ciel, personne, voiture, panneau, vélo et fond.</p>
+<p style="font-size:32px;line-height:1.45;color:#4A5568">Le modèle en production est un <b>ResNet50‑UNet</b> : chaque pixel reçoit une classe. Il est servi par l'API et l'application du projet.</p>
+<p style="font-size:44px;line-height:1.3;font-family:'Space Grotesk', Arial, sans-serif;font-weight:500;color:#15202E">Question de la preuve de concept : un modèle récent fait‑il mieux, dans les mêmes conditions ?</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px;background:#15202E;border-radius:24px;padding:64px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#5FD3A8">Baseline actuelle</p>
+<p style="font-family:'Space Grotesk', Arial, sans-serif;font-size:200px;font-weight:700;line-height:1;color:#F6F5F1">0,816</p>
+<p style="font-size:32px;line-height:1.4;color:#B8C4D0">mIoU sur les 500 images de validation (moyenne des IoU des 9 classes)</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 2 / 20</p>
+<aside>(≈ 1 min) Le projet CityVision segmente des scènes urbaines en 9 classes. Le modèle actuel, ResNet50‑UNet, classe chaque pixel et obtient 0,816 de mIoU sur la validation. La mIoU est la moyenne, sur les 9 classes, de l'intersection sur l'union entre prédiction et vérité terrain. L'objectif de la veille : trouver un modèle de moins de 5 ans qui fasse mieux, et le prouver dans les mêmes conditions.</aside>
+</section>

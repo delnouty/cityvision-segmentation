@@ -1,0 +1,30 @@
+<section id="robustesse" data-transition="fade" style="background:#EBEEF1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:44px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Résultats · fiabilité</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Des écarts réels et reproductibles</h2>
+</div>
+<div style="display:flex;gap:40px;flex:1">
+<div style="flex:1.15;display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border-radius:20px;padding:40px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:36px;font-weight:700">Bootstrap apparié, 2 000 tirages</h3>
+<table style="font-size:26px;color:#15202E;font-variant-numeric:tabular-nums">
+<tr><th style="width:37%;text-align:left">Écart de mIoU</th><th style="width:14%;text-align:right">Δ</th><th style="width:33%;text-align:right">IC 95 %</th><th style="width:16%;text-align:left">Verdict</th></tr>
+<tr><td>Mask2Former − base</td><td>+0,026</td><td>[0,021 ; 0,031]</td><td>réel</td></tr>
+<tr><td>EoMT − base</td><td>+0,027</td><td>[0,022 ; 0,032]</td><td>réel</td></tr>
+<tr><td>EoMT − Mask2Former</td><td>+0,001</td><td>[−0,003 ; 0,005]</td><td>égalité</td></tr>
+</table>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">On ré‑échantillonne 2 000 fois les 500 images de validation (tirage avec remise) : l'écart avec la baseline reste toujours positif.</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:20px;background:#FFFFFF;border-radius:20px;padding:40px">
+<h3 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:36px;font-weight:700">Ré‑entraînement complet</h3>
+<table style="font-size:26px;color:#15202E;font-variant-numeric:tabular-nums">
+<tr><th style="width:40%;text-align:left">mIoU</th><th style="width:30%;text-align:right">Notebook</th><th style="width:30%;text-align:right">Référence</th></tr>
+<tr><td>ResNet50‑UNet</td><td>0,8152</td><td>0,8157</td></tr>
+<tr><td>Mask2Former</td><td>0,8402</td><td>0,8419</td></tr>
+<tr><td>EoMT</td><td>0,8423</td><td>0,8426</td></tr>
+</table>
+<p style="font-size:26px;line-height:1.4;color:#4A5568">Les trois modèles ré‑entraînés de zéro dans le notebook : écarts inférieurs à 0,002.</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 16 / 20</p>
+<aside>(≈ 1 min) Deux vérifications de fiabilité. À gauche, le bootstrap apparié : on ré‑échantillonne 2 000 fois les images de validation et on recalcule l'écart. L'intervalle à 95 % de l'écart avec la baseline est entièrement positif, pour Mask2Former comme pour EoMT : le gain ne dépend pas des images choisies. Entre EoMT et Mask2Former, l'intervalle contient zéro : ils sont à égalité en précision. À droite, la reproductibilité : j'ai ré‑entraîné les trois modèles de zéro dans le notebook livré. Les résultats diffèrent de moins de 0,002 des entraînements de référence. Les conclusions ne tiennent donc pas à un entraînement chanceux.</aside>
+</section>

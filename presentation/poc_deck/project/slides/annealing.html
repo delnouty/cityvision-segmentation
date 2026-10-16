@@ -1,0 +1,42 @@
+<section id="annealing" data-transition="fade" style="background:#F6F5F1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Démarche · concept 5 : EoMT</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Mask annealing : retirer les masques</h2>
+</div>
+<div style="display:flex;gap:48px">
+<div style="position:relative;width:1060px;height:470px">
+<p style="position:absolute;left:0;top:0;width:1060px;font-size:24px;font-weight:600">Probabilité de garder l'attention masquée, par bloc (entraînement réel, 20 époques)</p>
+<svg aria-label="Courbes de probabilité d'attention masquée des blocs 10, 11 et 12 : chacune reste à 1 puis descend à 0, la première entre les époques 4 et 8, la deuxième entre 8 et 12, la troisième entre 12 et 16" width="1000" height="360" viewBox="0 0 1000 360" style="position:absolute;left:60px;top:48px;width:1000px;height:360px">
+<line x1="0" y1="330" x2="1000" y2="330" stroke="#9AA3AD" stroke-width="2"/>
+<line x1="0" y1="20" x2="0" y2="330" stroke="#9AA3AD" stroke-width="2"/>
+<line x1="250" y1="20" x2="250" y2="330" stroke="#E1E5E9" stroke-width="1"/>
+<line x1="500" y1="20" x2="500" y2="330" stroke="#E1E5E9" stroke-width="1"/>
+<line x1="750" y1="20" x2="750" y2="330" stroke="#E1E5E9" stroke-width="1"/>
+<path d="M0.0,20 L200.0,20 L205.0,27.0 L210.0,34.0 L215.0,41.0 L220.0,48.0 L225.0,55.1 L230.0,62.2 L235.0,69.3 L240.0,76.4 L245.0,83.5 L250.0,90.7 L255.0,97.9 L260.0,105.1 L265.0,112.4 L270.0,119.6 L275.0,126.9 L280.0,134.3 L285.0,141.6 L290.0,149.0 L295.0,156.4 L300.0,163.9 L305.0,171.4 L310.0,178.9 L315.0,186.5 L320.0,194.1 L325.0,201.8 L330.0,209.5 L335.0,217.3 L340.0,225.1 L345.0,233.0 L350.0,241.0 L355.0,249.0 L360.0,257.2 L365.0,265.4 L370.0,273.8 L375.0,282.3 L380.0,291.0 L385.0,299.9 L390.0,309.1 L395.0,318.8 L400.0,330.0 L1000.0,330" fill="none" stroke="#0F7B5F" stroke-width="5"/>
+<path d="M0.0,20 L400.0,20 L405.0,27.0 L410.0,34.0 L415.0,41.0 L420.0,48.0 L425.0,55.1 L430.0,62.2 L435.0,69.3 L440.0,76.4 L445.0,83.5 L450.0,90.7 L455.0,97.9 L460.0,105.1 L465.0,112.4 L470.0,119.6 L475.0,126.9 L480.0,134.3 L485.0,141.6 L490.0,149.0 L495.0,156.4 L500.0,163.9 L505.0,171.4 L510.0,178.9 L515.0,186.5 L520.0,194.1 L525.0,201.8 L530.0,209.5 L535.0,217.3 L540.0,225.1 L545.0,233.0 L550.0,241.0 L555.0,249.0 L560.0,257.2 L565.0,265.4 L570.0,273.8 L575.0,282.3 L580.0,291.0 L585.0,299.9 L590.0,309.1 L595.0,318.8 L600.0,330.0 L1000.0,330" fill="none" stroke="#2A78D6" stroke-width="5" stroke-dasharray="14 8"/>
+<path d="M0.0,20 L600.0,20 L605.0,27.0 L610.0,34.0 L615.0,41.0 L620.0,48.0 L625.0,55.1 L630.0,62.2 L635.0,69.3 L640.0,76.4 L645.0,83.5 L650.0,90.7 L655.0,97.9 L660.0,105.1 L665.0,112.4 L670.0,119.6 L675.0,126.9 L680.0,134.3 L685.0,141.6 L690.0,149.0 L695.0,156.4 L700.0,163.9 L705.0,171.4 L710.0,178.9 L715.0,186.5 L720.0,194.1 L725.0,201.8 L730.0,209.5 L735.0,217.3 L740.0,225.1 L745.0,233.0 L750.0,241.0 L755.0,249.0 L760.0,257.2 L765.0,265.4 L770.0,273.8 L775.0,282.3 L780.0,291.0 L785.0,299.9 L790.0,309.1 L795.0,318.8 L800.0,330.0 L1000.0,330" fill="none" stroke="#EB6834" stroke-width="5" stroke-dasharray="4 8"/>
+</svg>
+<p style="position:absolute;left:0;top:52px;width:50px;font-size:24px;text-align:right">1</p>
+<p style="position:absolute;left:0;top:362px;width:50px;font-size:24px;text-align:right">0</p>
+<p style="position:absolute;left:44px;top:420px;width:40px;font-size:24px;text-align:center">0</p>
+<p style="position:absolute;left:290px;top:420px;width:40px;font-size:24px;text-align:center">5</p>
+<p style="position:absolute;left:540px;top:420px;width:40px;font-size:24px;text-align:center">10</p>
+<p style="position:absolute;left:790px;top:420px;width:40px;font-size:24px;text-align:center">15</p>
+<p style="position:absolute;left:900px;top:420px;width:160px;font-size:24px;text-align:right">20 époques</p>
+<p style="position:absolute;left:380px;top:160px;width:120px;font-size:24px;font-weight:600;color:#0F7B5F">bloc 10</p>
+<p style="position:absolute;left:580px;top:160px;width:120px;font-size:24px;font-weight:600;color:#1D5BA8">bloc 11</p>
+<p style="position:absolute;left:780px;top:160px;width:120px;font-size:24px;font-weight:600;color:#B5430E">bloc 12</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DDE1E5;border-radius:16px;padding:28px">
+<img src="/_blob/644a39f71a85f95a93a72a33af9fe389" alt="P b de t égale 1 moins t moins t s b sur t e b moins t s b, le tout à la puissance 0,9, pour t entre t s b et t e b" style="width:500px;height:73px;object-fit:contain">
+<p style="font-size:24px;line-height:1.4;color:#4A5568">Retrait bloc par bloc, entre les pas 2 976 et 11 904 sur 14 880 ; derniers 20 % sans aucun masque.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#15202E;border-radius:16px;padding:28px">
+<p style="font-size:24px;line-height:1.4;color:#F6F5F1"><b>Validation toujours sans masque</b>, comme en production : la mIoU monte pendant le retrait, de 0,835 (époque 5) à 0,842 (époque 12).</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 11 / 20 · calendrier du dépôt officiel EoMT, mis à l'échelle de nos 14 880 pas</p>
+<aside>(≈ 45 s) La technique qui rend EoMT rapide : le mask annealing. Au début de l'entraînement, les trois derniers blocs utilisent l'attention masquée, comme Mask2Former, ce qui aide à apprendre. Puis, bloc par bloc, la probabilité de l'appliquer décroît de 1 à 0 selon une loi polynomiale. Sur mes 14 880 pas, le bloc 10 la perd entre les époques 4 et 8, le bloc 11 entre 8 et 12, le bloc 12 entre 12 et 16 ; les quatre dernières époques sont entièrement sans masque. Point de contrôle : j'ai validé à chaque époque sans aucun masque, exactement comme en production, et la mIoU a continué de monter pendant le retrait. J'ai aussi suspendu l'arrêt anticipé pendant cette phase.</aside>
+</section>

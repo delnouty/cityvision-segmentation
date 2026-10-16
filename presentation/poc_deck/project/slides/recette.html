@@ -1,0 +1,17 @@
+<section id="recette" data-transition="fade" style="background:#EBEEF1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Démarche · recette d'entraînement</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Recette d'entraînement</h2>
+</div>
+<table style="width:1664px;font-size:24px;color:#15202E;background:#FFFFFF">
+<tr><th style="width:17%;text-align:left">Élément</th><th style="width:23%;text-align:left">ResNet50‑UNet</th><th style="width:28%;text-align:left">Mask2Former</th><th style="width:32%;text-align:left">EoMT</th></tr>
+<tr><td>Pré‑entraînement</td><td>encodeur ImageNet</td><td>modèle entier ADE20K</td><td>modèle entier COCO (ViT DINOv2)</td></tr>
+<tr><td>Optimiseur</td><td>Adam</td><td>AdamW, décroissance 0,05</td><td>AdamW, décroissance 0,05</td></tr>
+<tr><td>Taux</td><td>0,0001 décodeur, 0,00001 encodeur, constant</td><td>0,0001, backbone 0,00001 ; warm‑up de 250 pas, puis décroissance polynomiale</td><td>0,0001 en tête, × 0,8 par couche en descendant ; warm‑up des têtes puis du ViT</td></tr>
+<tr><td>Perte</td><td>CE + Dice pondérées</td><td>appariement + CE, BCE, Dice</td><td>idem, une perte par bloc</td></tr>
+<tr><td>Lot, précision</td><td>4, fp32</td><td>2 × 2 accumulés, bf16, gradient ≤ 0,01</td><td>2 × 2 accumulés, bf16, gradient ≤ 0,01</td></tr>
+<tr><td>Spécifique</td><td>poids de classe 0,5 à 3</td><td>tête 150 → 9 classes</td><td>embeddings 40×40 → 32×64, mask annealing</td></tr>
+</table>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 12 / 20 · détails et équations dans doc/poc_mathematical_models.tex</p>
+<aside>(≈ 45 s) La recette complète, sur une seule vue. Chaque modèle garde celle de son article, pour ne pas le désavantager. Deux points méritent d'être cités. Pour EoMT, le taux d'apprentissage décroît par couche, de 0,8 par bloc en descendant : les premières couches du ViT, déjà bien pré‑entraînées, bougent peu ; et le warm‑up se fait en deux temps, d'abord les têtes avec le ViT gelé, puis le ViT. Pour les deux transformers, la contrainte matérielle, 8 Go de GPU, est gérée par des lots de 2 avec accumulation de gradient et la demi‑précision bf16. Le document mathématique du projet donne toutes les équations.</aside>
+</section>

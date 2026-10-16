@@ -1,0 +1,33 @@
+<section id="classes" data-transition="fade" style="background:#F6F5F1;color:#15202E;font-family:'IBM Plex Sans', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0F7B5F">Résultats · par classe</p>
+<h2 style="font-family:'Space Grotesk', Arial, sans-serif;font-size:72px;font-weight:700;line-height:1.1">Gains sur les classes difficiles</h2>
+</div>
+<div style="display:flex;gap:48px;align-items:start">
+<table style="width:1080px;font-size:26px;color:#15202E;font-variant-numeric:tabular-nums">
+<tr><th style="width:28%;text-align:left">IoU par classe</th><th style="width:17%;text-align:right">Baseline</th><th style="width:19%;text-align:right">Mask2Former</th><th style="width:15%;text-align:right">EoMT</th><th style="width:21%;text-align:right">Gain EoMT</th></tr>
+<tr style="background:#FDF0E8"><td>fond</td><td>0,755</td><td>0,813</td><td>0,827</td><td>+0,071</td></tr>
+<tr style="background:#FDF0E8"><td>personne</td><td>0,728</td><td>0,769</td><td>0,770</td><td>+0,042</td></tr>
+<tr><td>bâtiment</td><td>0,860</td><td>0,892</td><td>0,893</td><td>+0,032</td></tr>
+<tr style="background:#FDF0E8"><td>panneau</td><td>0,653</td><td>0,698</td><td>0,680</td><td>+0,027</td></tr>
+<tr style="background:#FDF0E8"><td>vélo</td><td>0,691</td><td>0,713</td><td>0,718</td><td>+0,027</td></tr>
+<tr><td>route</td><td>0,926</td><td>0,946</td><td>0,953</td><td>+0,027</td></tr>
+<tr><td>voiture</td><td>0,914</td><td>0,930</td><td>0,934</td><td>+0,020</td></tr>
+<tr><td>végétation</td><td>0,895</td><td>0,903</td><td>0,902</td><td>+0,007</td></tr>
+<tr><td>ciel</td><td>0,918</td><td>0,912</td><td>0,907</td><td>−0,011</td></tr>
+</table>
+<div style="flex:1;display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:1px solid #DDE1E5;border-radius:16px;padding:32px">
+<p style="font-size:28px;line-height:1.4;color:#15202E"><b>Lignes surlignées</b> : les classes rares ou hétérogènes, où la baseline était faible.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:1px solid #DDE1E5;border-radius:16px;padding:32px">
+<p style="font-size:28px;line-height:1.4;color:#15202E"><b>8 classes sur 9 progressent</b>, toutes de façon significative (bootstrap).</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;background:#FFFFFF;border:1px solid #DDE1E5;border-radius:16px;padding:32px">
+<p style="font-size:28px;line-height:1.4;color:#15202E"><b>Seule baisse : le ciel</b> (−0,011), grande zone simple déjà bien traitée.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7380">CityVision · Preuve de concept · 14 / 20 · IoU sur les 500 images de validation</p>
+<aside>(≈ 45 s) Le détail par classe confirme l'hypothèse du plan prévisionnel. Les gains les plus nets sont sur le fond, qui regroupe des éléments très variés (trottoirs, poteaux, clôtures), sur les personnes (+0,042) et sur les panneaux et les vélos (+0,027) : exactement les petits objets où la baseline était faible. Huit classes sur neuf progressent, toutes de façon significative selon le bootstrap. La seule baisse est le ciel, une grande zone homogène que la baseline traitait déjà très bien. Mask2Former est légèrement meilleur qu'EoMT sur les panneaux.</aside>
+</section>
